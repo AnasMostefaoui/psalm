@@ -523,6 +523,10 @@ class ExpressionAnalyzer
             }
 
             $stmt->inferredType = Type::getString();
+
+            if (isset($stmt->expr->inferredType) && $stmt->expr->inferredType->tainted) {
+                $stmt->inferredType->tainted = $stmt->expr->inferredType->tainted;
+            }
         } elseif ($stmt instanceof PhpParser\Node\Expr\Cast\Object_) {
             if (self::analyze($statements_analyzer, $stmt->expr, $context) === false) {
                 return false;

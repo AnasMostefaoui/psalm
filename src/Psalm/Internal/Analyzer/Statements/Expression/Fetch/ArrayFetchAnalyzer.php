@@ -160,6 +160,10 @@ class ArrayFetchAnalyzer
                 null
             );
 
+            if ($array_var_id === '$_GET' || $array_var_id === '$_POST') {
+                $stmt->inferredType->tainted = Type\Union::TAINTED;
+            }
+
             if ($context->inside_isset
                 && $stmt->dim
                 && isset($stmt->dim->inferredType)

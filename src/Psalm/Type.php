@@ -1449,6 +1449,10 @@ abstract class Type
             if ($both_failed_reconciliation) {
                 $combined_type->failed_reconciliation = true;
             }
+
+            if ($type_1->tainted || $type_2->tainted) {
+                $combined_type->tainted = $type_1->tainted & $type_2->tainted;
+            }
         }
 
         if ($type_1->possibly_undefined || $type_2->possibly_undefined) {

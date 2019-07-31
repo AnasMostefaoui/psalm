@@ -188,6 +188,11 @@ class ProjectAnalyzer
     public $generated_report_options;
 
     /**
+     * @var bool
+     */
+    public $check_tainted_inputs = false;
+
+    /**
      * @var array<int, class-string<CodeIssue>>
      */
     const SUPPORTED_ISSUES_TO_FIX = [

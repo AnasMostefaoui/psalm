@@ -592,7 +592,9 @@ abstract class FunctionLikeAnalyzer extends SourceAnalyzer implements Statements
                 ]);
             }
 
-            $var_type->sources = [new TypeSource($cased_method_id, $offset, false)];
+            if ($cased_method_id) {
+                $var_type->sources = [new TypeSource($cased_method_id, $offset, false)];
+            }
 
             $context->vars_in_scope['$' . $function_param->name] = $var_type;
             $context->vars_possibly_in_scope['$' . $function_param->name] = true;

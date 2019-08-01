@@ -336,8 +336,6 @@ class Codebase
             $progress
         );
 
-        $this->taint = new Internal\Codebase\Taint();
-
         $this->loadAnalyzer();
     }
 

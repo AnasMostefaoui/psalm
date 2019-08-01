@@ -69,7 +69,7 @@ use function usort;
  *      class_method_locations: array<string, array<int, \Psalm\CodeLocation>>,
  *      class_property_locations: array<string, array<int, \Psalm\CodeLocation>>,
  *      possible_method_param_types: array<string, array<int, \Psalm\Type\Union>>,
- *      new_sinks: array<\Psalm\Internal\Taint\TypeSource>
+ *      taint_data: ?\Psalm\Internal\Codebase\Taint
  * }
  */
 
@@ -241,7 +241,6 @@ class Analyzer
     {
         $this->loadCachedResults($project_analyzer);
 
-        $filetype_analyzers = $this->config->getFiletypeAnalyzers();
         $codebase = $project_analyzer->getCodebase();
 
         if ($alter_code) {
@@ -254,6 +253,57 @@ class Analyzer
                 return $this->file_provider->fileExists($file_path);
             }
         );
+
+        $this->progress->start(count($this->files_to_analyze));
+
+        $this->doAnalysis($project_analyzer, $pool_size);
+
+        if ($codebase->taint) {
+            while ($codebase->taint->hasNewSinksAndSources()) {
+                $codebase->taint->clearNewSinksAndSources();
+
+                $this->doAnalysis($project_analyzer, $pool_size);
+            }
+        }
+
+        $this->progress->finish();
+
+        if ($codebase->find_unused_code
+            && ($project_analyzer->full_run || $codebase->find_unused_code === 'always')
+        ) {
+            $project_analyzer->checkClassReferences();
+        }
+
+        $scanned_files = $codebase->scanner->getScannedFiles();
+        $codebase->file_reference_provider->setAnalyzedMethods($this->analyzed_methods);
+        $codebase->file_reference_provider->setFileMaps($this->getFileMaps());
+        $codebase->file_reference_provider->setTypeCoverage($this->mixed_counts);
+        $codebase->file_reference_provider->updateReferenceCache($codebase, $scanned_files);
+
+        if ($codebase->diff_methods) {
+            $codebase->statements_provider->resetDiffs();
+        }
+
+        if ($alter_code) {
+            $this->progress->startAlteringFiles();
+
+            $project_analyzer->prepareMigration();
+
+            $files_to_update = $this->files_to_update !== null ? $this->files_to_update : $this->files_to_analyze;
+
+            foreach ($files_to_update as $file_path) {
+                $this->updateFile($file_path, $project_analyzer->dry_run);
+            }
+
+            $project_analyzer->migrateCode();
+        }
+    }
+
+    private function doAnalysis(ProjectAnalyzer $project_analyzer, int $pool_size) : void
+    {
+        $codebase = $project_analyzer->getCodebase();
+
+        $filetype_analyzers = $this->config->getFiletypeAnalyzers();
 
         $analysis_worker =
             /**
@@ -274,8 +324,6 @@ class Analyzer
 
                 return $this->getFileIssues($file_path);
             };
-
-        $this->progress->start(count($this->files_to_analyze));
 
         $task_done_closure =
             /**
@@ -356,7 +404,7 @@ class Analyzer
                         'class_method_locations' => $file_reference_provider->getAllClassMethodLocations(),
                         'class_property_locations' => $file_reference_provider->getAllClassPropertyLocations(),
                         'possible_method_param_types' => $analyzer->getPossibleMethodParamTypes(),
-                        'new_sinks' => $analyzer->getNewSinks(),
+                        'taint_data' => $codebase->taint,
                     ];
                     // @codingStandardsIgnoreEnd
                 },
@@ -410,6 +458,9 @@ class Analyzer
                 $codebase->file_reference_provider->addClassPropertyLocations(
                     $pool_data['class_property_locations']
                 );
+                if ($codebase->taint && $pool_data['taint_data']) {
+                    $codebase->taint->addThreadData($pool_data['taint_data']);
+                }
 
                 $this->analyzed_methods = array_merge($pool_data['analyzed_methods'], $this->analyzed_methods);
 
@@ -471,40 +522,6 @@ class Analyzer
             foreach (IssueBuffer::getIssuesData() as $issue_data) {
                 $codebase->file_reference_provider->addIssue($issue_data['file_path'], $issue_data);
             }
-        }
-
-        $this->progress->finish();
-
-        $codebase = $project_analyzer->getCodebase();
-
-        if ($codebase->find_unused_code
-            && ($project_analyzer->full_run || $codebase->find_unused_code === 'always')
-        ) {
-            $project_analyzer->checkClassReferences();
-        }
-
-        $scanned_files = $codebase->scanner->getScannedFiles();
-        $codebase->file_reference_provider->setAnalyzedMethods($this->analyzed_methods);
-        $codebase->file_reference_provider->setFileMaps($this->getFileMaps());
-        $codebase->file_reference_provider->setTypeCoverage($this->mixed_counts);
-        $codebase->file_reference_provider->updateReferenceCache($codebase, $scanned_files);
-
-        if ($codebase->diff_methods) {
-            $codebase->statements_provider->resetDiffs();
-        }
-
-        if ($alter_code) {
-            $this->progress->startAlteringFiles();
-
-            $project_analyzer->prepareMigration();
-
-            $files_to_update = $this->files_to_update !== null ? $this->files_to_update : $this->files_to_analyze;
-
-            foreach ($files_to_update as $file_path) {
-                $this->updateFile($file_path, $project_analyzer->dry_run);
-            }
-
-            $project_analyzer->migrateCode();
         }
     }
 

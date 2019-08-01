@@ -7,79 +7,82 @@ use Psalm\Internal\Analyzer\StatementsAnalyzer;
 use Psalm\Internal\Taint\TypeSource;
 use Psalm\IssueBuffer;
 use Psalm\Issue\TaintedInput;
+use function array_merge;
+use function array_merge_recursive;
+use function strtolower;
 
 class Taint
 {
     /**
      * @var array<string, array<int, bool>>
      */
-    private $new_method_param_sinks = [];
+    private $new_param_sinks = [];
 
     /**
      * @var array<string, bool>
      */
-    private $new_method_return_sinks = [];
+    private $new_return_sinks = [];
 
     /**
      * @var array<string, array<int, bool>>
      */
-    private $new_method_param_sources = [];
+    private $new_param_sources = [];
 
     /**
      * @var array<string, bool>
      */
-    private $new_method_return_sources = [];
+    private $new_return_sources = [];
 
     /**
      * @var array<string, array<int, bool>>
      */
-    private $previous_method_param_sinks = [];
+    private $previous_param_sinks = [];
 
     /**
      * @var array<string, bool>
      */
-    private $previous_method_return_sinks = [];
+    private $previous_return_sinks = [];
 
     /**
      * @var array<string, array<int, bool>>
      */
-    private $previous_method_param_sources = [];
+    private $previous_param_sources = [];
 
     /**
      * @var array<string, bool>
      */
-    private $previous_method_return_sources = [];
+    private $previous_return_sources = [];
 
     /**
      * @var array<string, array<int, bool>>
      */
-    private $archived_method_param_sinks = [];
+    private $archived_param_sinks = [];
 
     /**
      * @var array<string, bool>
      */
-    private $archived_method_return_sinks = [];
+    private $archived_return_sinks = [];
 
     /**
      * @var array<string, array<int, bool>>
      */
-    private $archived_method_param_sources = [];
+    private $archived_param_sources = [];
 
     /**
      * @var array<string, bool>
      */
-    private $archived_method_return_sources = [];
+    private $archived_return_sources = [];
 
     public function hasExistingSink(TypeSource $source) : bool
     {
         if ($source->argument_offset !== null) {
-            return isset($this->archived_method_param_sinks[strtolower($source->method_id)][$source->argument_offset])
-                || isset($this->previous_method_param_sinks[strtolower($source->method_id)][$source->argument_offset]);
+            return isset($this->archived_param_sinks[strtolower($source->method_id)][$source->argument_offset])
+                || isset($this->previous_param_sinks[strtolower($source->method_id)][$source->argument_offset]);
         }
 
         if ($source->from_return_type) {
-            return isset($this->archived_method_return_sinks[strtolower($source->method_id)])
-                || isset($this->previous_method_return_sinks[strtolower($source->method_id)]);
+            return isset($this->archived_return_sinks[strtolower($source->method_id)])
+                || isset($this->previous_return_sinks[strtolower($source->method_id)]);
         }
 
         return false;
@@ -88,11 +91,11 @@ class Taint
     public function hasPreviousSink(TypeSource $source) : bool
     {
         if ($source->argument_offset !== null) {
-            return isset($this->previous_method_param_sinks[strtolower($source->method_id)][$source->argument_offset]);
+            return isset($this->previous_param_sinks[strtolower($source->method_id)][$source->argument_offset]);
         }
 
         if ($source->from_return_type) {
-            return isset($this->previous_method_return_sinks[strtolower($source->method_id)]);
+            return isset($this->previous_return_sinks[strtolower($source->method_id)]);
         }
 
         return false;
@@ -101,13 +104,13 @@ class Taint
     public function hasExistingSource(TypeSource $source) : bool
     {
         if ($source->argument_offset !== null) {
-            return isset($this->archived_method_param_sources[strtolower($source->method_id)][$source->argument_offset])
-                || isset($this->previous_method_param_sources[strtolower($source->method_id)][$source->argument_offset]);
+            return isset($this->archived_param_sources[strtolower($source->method_id)][$source->argument_offset])
+                || isset($this->previous_param_sources[strtolower($source->method_id)][$source->argument_offset]);
         }
 
         if ($source->from_return_type) {
-            return isset($this->archived_method_return_sources[strtolower($source->method_id)])
-                || isset($this->previous_method_return_sources[strtolower($source->method_id)]);
+            return isset($this->archived_return_sources[strtolower($source->method_id)])
+                || isset($this->previous_return_sources[strtolower($source->method_id)]);
         }
 
         return false;
@@ -135,11 +138,11 @@ class Taint
             }
 
             if ($source->argument_offset !== null) {
-                $this->new_method_param_sources[strtolower($source->method_id)][$source->argument_offset] = true;
+                $this->new_param_sources[strtolower($source->method_id)][$source->argument_offset] = true;
             }
 
             if ($source->from_return_type) {
-                $this->new_method_return_sources[strtolower($source->method_id)] = true;
+                $this->new_return_sources[strtolower($source->method_id)] = true;
             }
         }
     }
@@ -166,53 +169,76 @@ class Taint
             }
 
             if ($source->argument_offset !== null) {
-                $this->new_method_param_sinks[strtolower($source->method_id)][$source->argument_offset] = true;
+                $this->new_param_sinks[strtolower($source->method_id)][$source->argument_offset] = true;
             }
 
             if ($source->from_return_type) {
-                $this->new_method_return_sinks[strtolower($source->method_id)] = true;
+                $this->new_return_sinks[strtolower($source->method_id)] = true;
             }
         }
     }
 
     public function hasNewSinksAndSources() : bool
     {
-        return ($this->new_method_param_sinks || $this->new_method_return_sinks)
-            && ($this->new_method_param_sources || $this->new_method_return_sources);
+        return ($this->new_param_sinks || $this->new_return_sinks)
+            && ($this->new_param_sources || $this->new_return_sources);
+    }
+
+    public function addThreadData(self $taint) : void
+    {
+        $this->new_param_sinks = array_merge_recursive(
+            $this->new_param_sinks,
+            $taint->new_param_sinks
+        );
+
+        $this->new_param_sources = array_merge_recursive(
+            $this->new_param_sources,
+            $taint->new_param_sources
+        );
+
+        $this->new_return_sinks = array_merge(
+            $this->new_return_sinks,
+            $taint->new_return_sinks
+        );
+
+        $this->new_return_sources = array_merge(
+            $this->new_return_sources,
+            $taint->new_return_sources
+        );
     }
 
     public function clearNewSinksAndSources() : void
     {
-        $this->archived_method_param_sinks = array_merge_recursive(
-            $this->archived_method_param_sinks,
-            $this->new_method_param_sinks
+        $this->archived_param_sinks = array_merge_recursive(
+            $this->archived_param_sinks,
+            $this->new_param_sinks
         );
 
-        $this->archived_method_return_sinks = array_merge(
-            $this->archived_method_return_sinks,
-            $this->new_method_return_sinks
+        $this->archived_return_sinks = array_merge(
+            $this->archived_return_sinks,
+            $this->new_return_sinks
         );
 
-        $this->previous_method_param_sinks = $this->new_method_param_sinks;
-        $this->previous_method_return_sinks = $this->new_method_return_sinks;
+        $this->previous_param_sinks = $this->new_param_sinks;
+        $this->previous_return_sinks = $this->new_return_sinks;
 
-        $this->new_method_param_sinks = [];
-        $this->new_method_return_sinks = [];
+        $this->new_param_sinks = [];
+        $this->new_return_sinks = [];
 
-        $this->archived_method_param_sources = array_merge_recursive(
-            $this->archived_method_param_sources,
-            $this->new_method_param_sources
+        $this->archived_param_sources = array_merge_recursive(
+            $this->archived_param_sources,
+            $this->new_param_sources
         );
 
-        $this->archived_method_return_sources = array_merge(
-            $this->archived_method_return_sources,
-            $this->new_method_return_sources
+        $this->archived_return_sources = array_merge(
+            $this->archived_return_sources,
+            $this->new_return_sources
         );
 
-        $this->previous_method_param_sources = $this->new_method_param_sources;
-        $this->previous_method_return_sources = $this->new_method_return_sources;
+        $this->previous_param_sources = $this->new_param_sources;
+        $this->previous_return_sources = $this->new_return_sources;
 
-        $this->new_method_param_sources = [];
-        $this->new_method_return_sources = [];
+        $this->new_param_sources = [];
+        $this->new_return_sources = [];
     }
 }

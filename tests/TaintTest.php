@@ -14,7 +14,7 @@ class TaintTest extends TestCase
         $this->expectException(\Psalm\Exception\CodeException::class);
         $this->expectExceptionMessage('TaintedInput');
 
-        $this->project_analyzer->check_tainted_inputs = true;
+        $this->project_analyzer->trackTaintedInputs();
 
         $this->addFile(
             'somefile.php',
@@ -46,7 +46,7 @@ class TaintTest extends TestCase
         $this->expectException(\Psalm\Exception\CodeException::class);
         $this->expectExceptionMessage('TaintedInput');
 
-        $this->project_analyzer->check_tainted_inputs = true;
+        $this->project_analyzer->trackTaintedInputs();
 
         $this->addFile(
             'somefile.php',
@@ -79,7 +79,7 @@ class TaintTest extends TestCase
      */
     public function testUntaintedInput()
     {
-        $this->project_analyzer->check_tainted_inputs = true;
+        $this->project_analyzer->trackTaintedInputs();
 
         $this->addFile(
             'somefile.php',

@@ -2367,6 +2367,7 @@ class CallAnalyzer
         );
 
         if ($codebase->taint
+            && $is_sink
             && $input_type->sources
             && $cased_method_id
             && !$codebase->taint->hasExistingSink(new TypeSource($cased_method_id, $argument_offset, false))

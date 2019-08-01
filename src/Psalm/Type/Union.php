@@ -151,6 +151,11 @@ class Union
     public $tainted = null;
 
     /**
+     * @var array<\Psalm\Internal\Taint\TypeSource>
+     */
+    public $sources = [];
+
+    /**
      * Constructs an Union instance
      *
      * @param array<int, Atomic>     $types

@@ -2366,17 +2366,25 @@ class CallAnalyzer
             $union_comparison_results
         );
 
-        if ($codebase->taint
-            && $is_sink
-            && $input_type->sources
-            && $cased_method_id
-            && !$codebase->taint->hasExistingSink(new TypeSource($cased_method_id, $argument_offset, false))
-        ) {
-            $codebase->taint->addSinks(
-                $statements_analyzer,
-                $input_type->sources,
-                $code_location
-            );
+        if ($codebase->taint && $cased_method_id) {
+            if ($is_sink
+                && $input_type->sources
+                && !$codebase->taint->hasExistingSink(new TypeSource($cased_method_id, $argument_offset, false))
+            ) {
+                $codebase->taint->addSinks(
+                    $statements_analyzer,
+                    $input_type->sources,
+                    $code_location
+                );
+            }
+
+            if ($input_type->tainted) {
+                $codebase->taint->addSources(
+                    $statements_analyzer,
+                    [new TypeSource($cased_method_id, $argument_offset, false)],
+                    $code_location
+                );
+            }
         }
 
         $replace_input_type = false;

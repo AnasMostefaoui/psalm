@@ -2283,6 +2283,16 @@ class ReflectorVisitor extends PhpParser\NodeVisitorAbstract implements PhpParse
             }
         }
 
+        foreach ($docblock_info->taint_sink_params as $taint_sink_param) {
+            $param_name = substr($taint_sink_param['name'], 1);
+
+            foreach ($storage->params as $i => $param_storage) {
+                if ($param_storage->name === $param_name) {
+                    $param_storage->is_sink = true;
+                }
+            }
+        }
+
         if ($docblock_info->template_typeofs) {
             foreach ($docblock_info->template_typeofs as $template_typeof) {
                 foreach ($storage->params as $param) {

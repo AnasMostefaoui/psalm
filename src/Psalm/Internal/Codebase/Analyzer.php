@@ -254,8 +254,6 @@ class Analyzer
             }
         );
 
-        $this->progress->start(count($this->files_to_analyze));
-
         $this->doAnalysis($project_analyzer, $pool_size);
 
         if ($codebase->taint) {
@@ -301,6 +299,8 @@ class Analyzer
 
     private function doAnalysis(ProjectAnalyzer $project_analyzer, int $pool_size) : void
     {
+        $this->progress->start(count($this->files_to_analyze));
+
         $codebase = $project_analyzer->getCodebase();
 
         $filetype_analyzers = $this->config->getFiletypeAnalyzers();

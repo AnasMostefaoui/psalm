@@ -429,6 +429,15 @@ class CommentAnalyzer
             }
         }
 
+        if (isset($parsed_docblock['specials']['psalm-taint-sink'])) {
+            /** @var string $param */
+            foreach ($parsed_docblock['specials']['psalm-taint-sink'] as $offset => $param) {
+                $param = trim($param);
+
+                $info->taint_sink_params[] = ['name' => $param];
+            }
+        }
+
         if (isset($parsed_docblock['specials']['global'])) {
             foreach ($parsed_docblock['specials']['global'] as $offset => $global) {
                 $line_parts = self::splitDocLine($global);

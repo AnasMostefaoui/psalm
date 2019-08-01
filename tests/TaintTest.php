@@ -77,6 +77,40 @@ class TaintTest extends TestCase
     /**
      * @return void
      */
+    public function testTaintedInputToParam()
+    {
+        $this->expectException(\Psalm\Exception\CodeException::class);
+        $this->expectExceptionMessage('TaintedInput');
+
+        $this->project_analyzer->trackTaintedInputs();
+
+        $this->addFile(
+            'somefile.php',
+            '<?php
+                class A {
+                    public function getUserId(PDO $pdo) : void {
+                        $this->deleteUser(
+                            $pdo,
+                            $this->getAppendedUserId((string) $_GET["user_id"])
+                        );
+                    }
+
+                    public function getAppendedUserId(string $user_id) : string {
+                        return "aaa" . $user_id;
+                    }
+
+                    public function deleteUser(PDO $pdo, string $userId) : void {
+                        $pdo->exec("delete from users where user_id = " . $userId);
+                    }
+                }'
+        );
+
+        $this->analyzeFile('somefile.php', new Context());
+    }
+
+    /**
+     * @return void
+     */
     public function testUntaintedInput()
     {
         $this->project_analyzer->trackTaintedInputs();

@@ -10,6 +10,7 @@ use Psalm\Internal\Analyzer\Statements\ExpressionAnalyzer;
 use Psalm\Internal\Analyzer\StatementsAnalyzer;
 use Psalm\Internal\Analyzer\TypeAnalyzer;
 use Psalm\Internal\Codebase\CallMap;
+use Psalm\Internal\Taint\TypeSource;
 use Psalm\Internal\Type\TypeCombination;
 use Psalm\CodeLocation;
 use Psalm\Context;
@@ -1740,7 +1741,8 @@ class CallAnalyzer
             $context,
             $function_param->by_ref,
             $function_param->is_variadic,
-            $arg->unpack
+            $arg->unpack,
+            $function_param->is_sink
         ) === false) {
             return false;
         }
@@ -2231,15 +2233,6 @@ class CallAnalyzer
     }
 
     /**
-     * @param   StatementsAnalyzer   $statements_analyzer
-     * @param   Type\Union          $input_type
-     * @param   Type\Union          $param_type
-     * @param   string|null         $cased_method_id
-     * @param   int                 $argument_offset
-     * @param   CodeLocation        $code_location
-     * @param   bool                $by_ref
-     * @param   bool                $variadic
-     *
      * @return  null|false
      */
     public static function checkFunctionArgumentType(
@@ -2247,14 +2240,15 @@ class CallAnalyzer
         Type\Union $input_type,
         Type\Union $param_type,
         ?Type\Union $signature_param_type,
-        $cased_method_id,
+        ?string $cased_method_id,
         int $argument_offset,
         CodeLocation $code_location,
         PhpParser\Node\Expr $input_expr,
         Context $context,
         bool $by_ref = false,
         bool $variadic = false,
-        bool $unpack = false
+        bool $unpack = false,
+        bool $is_sink = false
     ) {
         $codebase = $statements_analyzer->getCodebase();
 
@@ -2371,6 +2365,18 @@ class CallAnalyzer
             true,
             $union_comparison_results
         );
+
+        if ($codebase->taint
+            && $input_type->sources
+            && $cased_method_id
+            && !$codebase->taint->hasExistingSink(new TypeSource($cased_method_id, $argument_offset, false))
+        ) {
+            $codebase->taint->addSinks(
+                $statements_analyzer,
+                $input_type->sources,
+                $code_location
+            );
+        }
 
         $replace_input_type = false;
 

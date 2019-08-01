@@ -329,6 +329,20 @@ class BinaryOpAnalyzer
             if (ExpressionAnalyzer::analyze($statements_analyzer, $stmt->right, $context) === false) {
                 return false;
             }
+
+            $sources = [];
+
+            if (isset($stmt->left->inferredType->sources)) {
+                $sources = $stmt->left->inferredType->sources;
+            }
+
+            if (isset($stmt->right->inferredType->sources)) {
+                $sources = array_merge($sources, $stmt->right->inferredType->sources);
+            }
+
+            if ($sources) {
+                $stmt->inferredType->sources = $sources;
+            }
         } elseif ($stmt instanceof PhpParser\Node\Expr\BinaryOp\Coalesce) {
             $t_if_context = clone $context;
 
@@ -575,8 +589,22 @@ class BinaryOpAnalyzer
                     $result_type
                 );
 
+                $sources = [];
+
+                if (isset($stmt->left->inferredType->sources)) {
+                    $sources = $stmt->left->inferredType->sources;
+                }
+
+                if (isset($stmt->right->inferredType->sources)) {
+                    $sources = array_merge($sources, $stmt->right->inferredType->sources);
+                }
+
                 if ($result_type) {
                     $stmt->inferredType = $result_type;
+
+                    if ($sources) {
+                        $stmt->inferredType->sources = $sources;
+                    }
                 }
             } elseif ($stmt instanceof PhpParser\Node\Expr\BinaryOp\BitwiseOr) {
                 self::analyzeNonDivArithmeticOp(

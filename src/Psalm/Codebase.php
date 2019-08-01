@@ -171,6 +171,11 @@ class Codebase
     public $populator;
 
     /**
+     * @var ?Internal\Codebase\Taint
+     */
+    public $taint = null;
+
+    /**
      * @var bool
      */
     public $server_mode = false;
@@ -267,6 +272,8 @@ class Codebase
      */
     public $php_minor_version = PHP_MINOR_VERSION;
 
+
+
     public function __construct(
         Config $config,
         Providers $providers,
@@ -328,6 +335,8 @@ class Codebase
             $providers->file_reference_provider,
             $progress
         );
+
+        $this->taint = new Internal\Codebase\Taint();
 
         $this->loadAnalyzer();
     }

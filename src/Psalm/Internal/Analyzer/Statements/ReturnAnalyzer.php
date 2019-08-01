@@ -12,6 +12,7 @@ use Psalm\Internal\Analyzer\TypeAnalyzer;
 use Psalm\CodeLocation;
 use Psalm\Context;
 use Psalm\Exception\DocblockParseException;
+use Psalm\Internal\Taint\TypeSource;
 use Psalm\Issue\FalsableReturnStatement;
 use Psalm\Issue\InvalidDocblock;
 use Psalm\Issue\InvalidReturnStatement;
@@ -20,6 +21,7 @@ use Psalm\Issue\MixedReturnStatement;
 use Psalm\Issue\MixedReturnTypeCoercion;
 use Psalm\Issue\NoValue;
 use Psalm\Issue\NullableReturnStatement;
+use Psalm\Issue\TaintedInput;
 use Psalm\IssueBuffer;
 use Psalm\Type;
 use function explode;
@@ -163,6 +165,26 @@ class ReturnAnalyzer
                         $source->getFQCLN(),
                         $source->getParentFQCLN()
                     );
+
+                    if ($codebase->taint) {
+                        if ($codebase->taint->hasPreviousSink(new TypeSource($cased_method_id, null, true))) {
+                            if ($inferred_type->sources) {
+                                $codebase->taint->addSinks(
+                                    $statements_analyzer,
+                                    $inferred_type->sources,
+                                    new CodeLocation($source, $stmt->expr)
+                                );
+                            }
+                        } elseif ($inferred_type->tainted
+                            && !$codebase->taint->hasExistingSource(new TypeSource($cased_method_id, null, true))
+                        ) {
+                            $codebase->taint->addSources(
+                                $statements_analyzer,
+                                [new TypeSource($cased_method_id, null, true)],
+                                new CodeLocation($source, $stmt->expr)
+                            );
+                        }
+                    }
 
                     $local_return_type = $source->getLocalReturnType($storage->return_type);
 

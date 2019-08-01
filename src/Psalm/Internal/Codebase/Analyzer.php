@@ -68,7 +68,8 @@ use function usort;
  *      class_locations: array<string, array<int, \Psalm\CodeLocation>>,
  *      class_method_locations: array<string, array<int, \Psalm\CodeLocation>>,
  *      class_property_locations: array<string, array<int, \Psalm\CodeLocation>>,
- *      possible_method_param_types: array<string, array<int, \Psalm\Type\Union>>
+ *      possible_method_param_types: array<string, array<int, \Psalm\Type\Union>>,
+ *      new_sinks: array<\Psalm\Internal\Taint\TypeSource>
  * }
  */
 
@@ -355,6 +356,7 @@ class Analyzer
                         'class_method_locations' => $file_reference_provider->getAllClassMethodLocations(),
                         'class_property_locations' => $file_reference_provider->getAllClassPropertyLocations(),
                         'possible_method_param_types' => $analyzer->getPossibleMethodParamTypes(),
+                        'new_sinks' => $analyzer->getNewSinks(),
                     ];
                     // @codingStandardsIgnoreEnd
                 },

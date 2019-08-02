@@ -431,7 +431,7 @@ class CommentAnalyzer
 
         if (isset($parsed_docblock['specials']['psalm-taint-sink'])) {
             /** @var string $param */
-            foreach ($parsed_docblock['specials']['psalm-taint-sink'] as $offset => $param) {
+            foreach ($parsed_docblock['specials']['psalm-taint-sink'] as $param) {
                 $param = trim($param);
 
                 $info->taint_sink_params[] = ['name' => $param];

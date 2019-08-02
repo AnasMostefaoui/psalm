@@ -2293,6 +2293,16 @@ class ReflectorVisitor extends PhpParser\NodeVisitorAbstract implements PhpParse
             }
         }
 
+        foreach ($docblock_info->assert_untainted_params as $untainted_assert_param) {
+            $param_name = substr($untainted_assert_param['name'], 1);
+
+            foreach ($storage->params as $param_storage) {
+                if ($param_storage->name === $param_name) {
+                    $param_storage->assert_untainted = true;
+                }
+            }
+        }
+
         if ($docblock_info->template_typeofs) {
             foreach ($docblock_info->template_typeofs as $template_typeof) {
                 foreach ($storage->params as $param) {

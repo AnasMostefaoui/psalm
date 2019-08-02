@@ -259,6 +259,7 @@ class Analyzer
         if ($codebase->taint) {
             while ($codebase->taint->hasNewSinksAndSources()) {
                 $project_analyzer->progress->write("\n\n" . 'Found tainted inputs, reanalysing' . "\n\n");
+
                 $codebase->taint->clearNewSinksAndSources();
 
                 $this->doAnalysis($project_analyzer, $pool_size, true);

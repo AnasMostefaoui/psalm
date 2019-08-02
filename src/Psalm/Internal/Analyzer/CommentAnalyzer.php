@@ -438,6 +438,15 @@ class CommentAnalyzer
             }
         }
 
+        if (isset($parsed_docblock['specials']['psalm-assert-untainted'])) {
+            /** @var string $param */
+            foreach ($parsed_docblock['specials']['psalm-assert-untainted'] as $param) {
+                $param = trim($param);
+
+                $info->assert_untainted_params[] = ['name' => $param];
+            }
+        }
+
         if (isset($parsed_docblock['specials']['global'])) {
             foreach ($parsed_docblock['specials']['global'] as $offset => $global) {
                 $line_parts = self::splitDocLine($global);

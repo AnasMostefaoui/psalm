@@ -334,12 +334,12 @@ class BinaryOpAnalyzer
                 $sources = [];
                 $either_tainted = 0;
 
-                if ($stmt->left->inferredType) {
+                if (isset($stmt->left->inferredType)) {
                     $sources = $stmt->left->inferredType->sources ?: [];
                     $either_tainted = $stmt->left->inferredType->tainted;
                 }
 
-                if ($stmt->right->inferredType) {
+                if (isset($stmt->right->inferredType)) {
                     $sources = array_merge($sources, $stmt->right->inferredType->sources ?: []);
                     $either_tainted = $either_tainted | $stmt->right->inferredType->tainted;
                 }

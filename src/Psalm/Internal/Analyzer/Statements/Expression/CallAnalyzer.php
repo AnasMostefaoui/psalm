@@ -1742,7 +1742,8 @@ class CallAnalyzer
             $function_param->by_ref,
             $function_param->is_variadic,
             $arg->unpack,
-            $function_param->is_sink
+            $function_param->is_sink,
+            $function_param->assert_untainted
         ) === false) {
             return false;
         }
@@ -2248,7 +2249,8 @@ class CallAnalyzer
         bool $by_ref = false,
         bool $variadic = false,
         bool $unpack = false,
-        bool $is_sink = false
+        bool $is_sink = false,
+        bool $assert_untainted = false
     ) {
         $codebase = $statements_analyzer->getCodebase();
 
@@ -2366,6 +2368,13 @@ class CallAnalyzer
             $union_comparison_results
         );
 
+        $replace_input_type = false;
+
+        if ($union_comparison_results->replacement_union_type) {
+            $replace_input_type = true;
+            $input_type = $union_comparison_results->replacement_union_type;
+        }
+
         if ($codebase->taint && $cased_method_id) {
             $method_source = new TypeSource($cased_method_id, $argument_offset, false);
 
@@ -2441,14 +2450,14 @@ class CallAnalyzer
                     $all_possible_sources,
                     $code_location
                 );
+
+                if ($assert_untainted) {
+                    $input_type = clone $input_type;
+                    $replace_input_type = true;
+                    $input_type->tainted = null;
+                    $input_type->sources = [];
+                }
             }
-        }
-
-        $replace_input_type = false;
-
-        if ($union_comparison_results->replacement_union_type) {
-            $replace_input_type = true;
-            $input_type = $union_comparison_results->replacement_union_type;
         }
 
         if ($type_match_found
@@ -2832,19 +2841,27 @@ class CallAnalyzer
         );
 
         if ($var_id) {
-            $input_type = clone $input_type;
+            $was_cloned = false;
 
             if ($input_type->isNullable() && !$param_type->isNullable()) {
+                $input_type = clone $input_type;
+                $was_cloned = true;
                 $input_type->removeType('null');
             }
 
             if ($input_type->getId() === $param_type->getId()) {
+                if (!$was_cloned) {
+                    $was_cloned = true;
+                    $input_type = clone $input_type;
+                }
+
                 $input_type->from_docblock = false;
 
                 foreach ($input_type->getTypes() as $atomic_type) {
                     $atomic_type->from_docblock = false;
                 }
             } elseif ($input_type->hasMixed() && $signature_param_type) {
+                $was_cloned = true;
                 $input_type = clone $signature_param_type;
 
                 if ($input_type->isNullable()) {
@@ -2852,7 +2869,9 @@ class CallAnalyzer
                 }
             }
 
-            $context->removeVarFromConflictingClauses($var_id, null, $statements_analyzer);
+            if ($was_cloned) {
+                $context->removeVarFromConflictingClauses($var_id, null, $statements_analyzer);
+            }
 
             if ($unpack) {
                 $input_type = new Type\Union([

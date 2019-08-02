@@ -141,7 +141,52 @@ class TaintTest extends TestCase
 
                 class AGrandChild extends AChild {}
 
-                AGrandChild::loadFull((string) $_GET["user_id"]);'
+                class C {
+                    public function foo(string $user_id) : void {
+                        AGrandChild::loadFull($user_id);
+                    }
+                }
+
+                (new C)->foo((string) $_GET["user_id"]);'
+        );
+
+        $this->analyzeFile('somefile.php', new Context());
+    }
+
+    /**
+     * @return void
+     */
+    public function testValidatedInputFromParam()
+    {
+        $this->project_analyzer->trackTaintedInputs();
+
+        $this->addFile(
+            'somefile.php',
+            '<?php
+                /**
+                 * @psalm-assert-untainted $userId
+                 */
+                function validateUserId(string $userId) : void {
+                    if (!is_numeric($userId)) {
+                        throw new \Exception("bad");
+                    }
+                }
+
+                class A {
+                    public function getUserId() : string {
+                        return (string) $_GET["user_id"];
+                    }
+
+                    public function doDelete(PDO $pdo) : void {
+                        $userId = $this->getUserId();
+                        validateUserId($userId);
+                        $this->deleteUser($pdo, $userId);
+                    }
+
+                    public function deleteUser(PDO $pdo, string $userId) : void {
+                        $pdo->exec("delete from users where user_id = " . $userId);
+                    }
+                }'
         );
 
         $this->analyzeFile('somefile.php', new Context());

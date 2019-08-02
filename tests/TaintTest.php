@@ -111,6 +111,45 @@ class TaintTest extends TestCase
     /**
      * @return void
      */
+    public function testTaintedInParentLoader()
+    {
+        $this->expectException(\Psalm\Exception\CodeException::class);
+        $this->expectExceptionMessage('TaintedInput');
+
+        $this->project_analyzer->trackTaintedInputs();
+
+        $this->addFile(
+            'somefile.php',
+            '<?php
+                abstract class A {
+                    abstract public static function loadPartial(string $sink) : void;
+
+                    public static function loadFull(string $sink) : void {
+                        static::loadPartial($sink);
+                    }
+                }
+
+                function getPdo() : PDO {
+                    return new PDO("connectionstring");
+                }
+
+                class AChild extends A {
+                    public static function loadPartial(string $sink) : void {
+                        getPdo()->exec("select * from foo where bar = " . $sink);
+                    }
+                }
+
+                class AGrandChild extends AChild {}
+
+                AGrandChild::loadFull((string) $_GET["user_id"]);'
+        );
+
+        $this->analyzeFile('somefile.php', new Context());
+    }
+
+    /**
+     * @return void
+     */
     public function testUntaintedInput()
     {
         $this->project_analyzer->trackTaintedInputs();

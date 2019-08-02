@@ -157,35 +157,47 @@ class ReturnAnalyzer
             $cased_method_id = $source->getCorrectlyCasedMethodId();
 
             if ($stmt->expr) {
-                if ($storage->return_type && !$storage->return_type->hasMixed()) {
-                    $inferred_type = ExpressionAnalyzer::fleshOutType(
-                        $codebase,
-                        $stmt->inferredType,
-                        $source->getFQCLN(),
-                        $source->getFQCLN(),
-                        $source->getParentFQCLN()
-                    );
+                $inferred_type = ExpressionAnalyzer::fleshOutType(
+                    $codebase,
+                    $stmt->inferredType,
+                    $source->getFQCLN(),
+                    $source->getFQCLN(),
+                    $source->getParentFQCLN()
+                );
 
-                    if ($codebase->taint) {
-                        if ($codebase->taint->hasPreviousSink(new TypeSource($cased_method_id, null, true))) {
-                            if ($inferred_type->sources) {
-                                $codebase->taint->addSinks(
-                                    $statements_analyzer,
-                                    $inferred_type->sources,
-                                    new CodeLocation($source, $stmt->expr)
-                                );
-                            }
-                        } elseif ($inferred_type->tainted
-                            && !$codebase->taint->hasExistingSource(new TypeSource($cased_method_id, null, true))
-                        ) {
-                            $codebase->taint->addSources(
+                if ($codebase->taint) {
+                    $method_source = new TypeSource($cased_method_id, null, true);
+
+                    if ($codebase->taint->hasPreviousSink($method_source)) {
+                        if ($inferred_type->sources) {
+                            $codebase->taint->addSinks(
                                 $statements_analyzer,
-                                [new TypeSource($cased_method_id, null, true)],
+                                $inferred_type->sources,
                                 new CodeLocation($source, $stmt->expr)
                             );
                         }
                     }
 
+                    if ($inferred_type->tainted) {
+                        $codebase->taint->addSources(
+                            $statements_analyzer,
+                            [$method_source],
+                            new CodeLocation($source, $stmt->expr)
+                        );
+                    } elseif ($inferred_type->sources) {
+                        foreach ($inferred_type->sources as $type_source) {
+                            if ($codebase->taint->hasPreviousSource($type_source)) {
+                                $codebase->taint->addSources(
+                                    $statements_analyzer,
+                                    [$method_source],
+                                    new CodeLocation($source, $stmt->expr)
+                                );
+                            }
+                        }
+                    }
+                }
+
+                if ($storage->return_type && !$storage->return_type->hasMixed()) {
                     $local_return_type = $source->getLocalReturnType($storage->return_type);
 
                     if ($storage instanceof \Psalm\Storage\MethodStorage) {

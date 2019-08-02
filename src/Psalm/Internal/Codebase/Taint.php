@@ -101,6 +101,19 @@ class Taint
         return false;
     }
 
+    public function hasPreviousSource(TypeSource $source) : bool
+    {
+        if ($source->argument_offset !== null) {
+            return isset($this->previous_param_sources[strtolower($source->method_id)][$source->argument_offset]);
+        }
+
+        if ($source->from_return_type) {
+            return isset($this->previous_return_sources[strtolower($source->method_id)]);
+        }
+
+        return false;
+    }
+
     public function hasExistingSource(TypeSource $source) : bool
     {
         if ($source->argument_offset !== null) {
@@ -125,6 +138,10 @@ class Taint
         \Psalm\CodeLocation $code_location
     ) : void {
         foreach ($sources as $source) {
+            if ($this->hasExistingSource($source)) {
+                continue;
+            }
+
             if ($this->hasExistingSink($source)) {
                 if (IssueBuffer::accepts(
                     new TaintedInput(
@@ -157,6 +174,10 @@ class Taint
     ) : void {
         foreach ($sources as $source) {
             if ($this->hasExistingSink($source)) {
+                continue;
+            }
+
+            if ($this->hasExistingSource($source)) {
                 if (IssueBuffer::accepts(
                     new TaintedInput(
                         'Something is bad here',

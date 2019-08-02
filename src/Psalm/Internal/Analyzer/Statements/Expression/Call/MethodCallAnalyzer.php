@@ -1287,6 +1287,14 @@ class MethodCallAnalyzer extends \Psalm\Internal\Analyzer\Statements\Expression\
                 );
             }
 
+            if ($codebase->taint && $method_id) {
+                $method_source = new TypeSource($method_id, null, true);
+
+                if ($codebase->taint->hasPreviousSource($method_source)) {
+                    $return_type_candidate->tainted = 1;
+                }
+            }
+
             if (!$return_type) {
                 $return_type = $return_type_candidate;
             } else {

@@ -330,18 +330,27 @@ class BinaryOpAnalyzer
                 return false;
             }
 
-            $sources = [];
+            if ($codebase->taint) {
+                $sources = [];
+                $either_tainted = 0;
 
-            if (isset($stmt->left->inferredType->sources)) {
-                $sources = $stmt->left->inferredType->sources;
-            }
+                if ($stmt->left->inferredType) {
+                    $sources = $stmt->left->inferredType->sources ?: [];
+                    $either_tainted = $stmt->left->inferredType->tainted;
+                }
 
-            if (isset($stmt->right->inferredType->sources)) {
-                $sources = array_merge($sources, $stmt->right->inferredType->sources);
-            }
+                if ($stmt->right->inferredType) {
+                    $sources = array_merge($sources, $stmt->right->inferredType->sources ?: []);
+                    $either_tainted = $either_tainted | $stmt->right->inferredType->tainted;
+                }
 
-            if ($sources) {
-                $stmt->inferredType->sources = $sources;
+                if ($sources) {
+                    $stmt->inferredType->sources = $sources;
+                }
+
+                if ($either_tainted) {
+                    $stmt->inferredType->tainted = $either_tainted;
+                }
             }
         } elseif ($stmt instanceof PhpParser\Node\Expr\BinaryOp\Coalesce) {
             $t_if_context = clone $context;
@@ -589,21 +598,23 @@ class BinaryOpAnalyzer
                     $result_type
                 );
 
-                $sources = [];
-
-                if (isset($stmt->left->inferredType->sources)) {
-                    $sources = $stmt->left->inferredType->sources;
-                }
-
-                if (isset($stmt->right->inferredType->sources)) {
-                    $sources = array_merge($sources, $stmt->right->inferredType->sources);
-                }
-
                 if ($result_type) {
                     $stmt->inferredType = $result_type;
+                }
+
+                if ($codebase->taint && $stmt->inferredType) {
+                    $sources = $stmt->left->inferredType->sources ?: [];
+                    $either_tainted = $stmt->left->inferredType->tainted;
+
+                    $sources = array_merge($sources, $stmt->right->inferredType->sources ?: []);
+                    $either_tainted = $either_tainted | $stmt->right->inferredType->tainted;
 
                     if ($sources) {
                         $stmt->inferredType->sources = $sources;
+                    }
+
+                    if ($either_tainted) {
+                        $stmt->inferredType->tainted = $either_tainted;
                     }
                 }
             } elseif ($stmt instanceof PhpParser\Node\Expr\BinaryOp\BitwiseOr) {

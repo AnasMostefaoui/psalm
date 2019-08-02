@@ -260,7 +260,7 @@ class Analyzer
             while ($codebase->taint->hasNewSinksAndSources()) {
                 $codebase->taint->clearNewSinksAndSources();
 
-                $this->doAnalysis($project_analyzer, $pool_size);
+                $this->doAnalysis($project_analyzer, $pool_size, true);
             }
         }
 
@@ -297,7 +297,7 @@ class Analyzer
         }
     }
 
-    private function doAnalysis(ProjectAnalyzer $project_analyzer, int $pool_size) : void
+    private function doAnalysis(ProjectAnalyzer $project_analyzer, int $pool_size, bool $rerun = false) : void
     {
         $this->progress->start(count($this->files_to_analyze));
 
@@ -378,7 +378,7 @@ class Analyzer
                 },
                 $analysis_worker,
                 /** @return WorkerData */
-                function () {
+                function () use ($rerun) {
                     $project_analyzer = ProjectAnalyzer::getInstance();
                     $codebase = $project_analyzer->getCodebase();
                     $analyzer = $codebase->analyzer;
@@ -389,21 +389,21 @@ class Analyzer
                     // @codingStandardsIgnoreStart
                     return [
                         'issues' => IssueBuffer::getIssuesData(),
-                        'file_references_to_classes' => $file_reference_provider->getAllFileReferencesToClasses(),
-                        'file_references_to_class_members' => $file_reference_provider->getAllFileReferencesToClassMembers(),
-                        'method_references_to_class_members' => $file_reference_provider->getAllMethodReferencesToClassMembers(),
-                        'file_references_to_missing_class_members' => $file_reference_provider->getAllFileReferencesToMissingClassMembers(),
-                        'method_references_to_missing_class_members' => $file_reference_provider->getAllMethodReferencesToMissingClassMembers(),
-                        'method_param_uses' => $file_reference_provider->getAllMethodParamUses(),
-                        'mixed_member_names' => $analyzer->getMixedMemberNames(),
-                        'file_manipulations' => FileManipulationBuffer::getAll(),
-                        'mixed_counts' => $analyzer->getMixedCounts(),
-                        'analyzed_methods' => $analyzer->getAnalyzedMethods(),
-                        'file_maps' => $analyzer->getFileMaps(),
-                        'class_locations' => $file_reference_provider->getAllClassLocations(),
-                        'class_method_locations' => $file_reference_provider->getAllClassMethodLocations(),
-                        'class_property_locations' => $file_reference_provider->getAllClassPropertyLocations(),
-                        'possible_method_param_types' => $analyzer->getPossibleMethodParamTypes(),
+                        'file_references_to_classes' => $rerun ? [] : $file_reference_provider->getAllFileReferencesToClasses(),
+                        'file_references_to_class_members' => $rerun ? [] : $file_reference_provider->getAllFileReferencesToClassMembers(),
+                        'method_references_to_class_members' => $rerun ? [] : $file_reference_provider->getAllMethodReferencesToClassMembers(),
+                        'file_references_to_missing_class_members' => $rerun ? [] : $file_reference_provider->getAllFileReferencesToMissingClassMembers(),
+                        'method_references_to_missing_class_members' => $rerun ? [] : $file_reference_provider->getAllMethodReferencesToMissingClassMembers(),
+                        'method_param_uses' => $rerun ? [] : $file_reference_provider->getAllMethodParamUses(),
+                        'mixed_member_names' => $rerun ? [] : $analyzer->getMixedMemberNames(),
+                        'file_manipulations' => $rerun ? [] : FileManipulationBuffer::getAll(),
+                        'mixed_counts' => $rerun ? [] : $analyzer->getMixedCounts(),
+                        'analyzed_methods' => $rerun ? [] : $analyzer->getAnalyzedMethods(),
+                        'file_maps' => $rerun ? [] : $analyzer->getFileMaps(),
+                        'class_locations' => $rerun ? [] : $file_reference_provider->getAllClassLocations(),
+                        'class_method_locations' => $rerun ? [] : $file_reference_provider->getAllClassMethodLocations(),
+                        'class_property_locations' => $rerun ? [] : $file_reference_provider->getAllClassPropertyLocations(),
+                        'possible_method_param_types' => $rerun ? [] : $analyzer->getPossibleMethodParamTypes(),
                         'taint_data' => $codebase->taint,
                     ];
                     // @codingStandardsIgnoreEnd
@@ -423,6 +423,14 @@ class Analyzer
 
             foreach ($forked_pool_data as $pool_data) {
                 IssueBuffer::addIssues($pool_data['issues']);
+
+                if ($codebase->taint && $pool_data['taint_data']) {
+                    $codebase->taint->addThreadData($pool_data['taint_data']);
+                }
+
+                if ($rerun) {
+                    continue;
+                }
 
                 foreach ($pool_data['issues'] as $issue_data) {
                     $codebase->file_reference_provider->addIssue($issue_data['file_path'], $issue_data);
@@ -458,9 +466,6 @@ class Analyzer
                 $codebase->file_reference_provider->addClassPropertyLocations(
                     $pool_data['class_property_locations']
                 );
-                if ($codebase->taint && $pool_data['taint_data']) {
-                    $codebase->taint->addThreadData($pool_data['taint_data']);
-                }
 
                 $this->analyzed_methods = array_merge($pool_data['analyzed_methods'], $this->analyzed_methods);
 

@@ -14,62 +14,62 @@ use function strtolower;
 class Taint
 {
     /**
-     * @var array<string, array<int, bool>>
+     * @var array<string, array<int, ?TypeSource>>
      */
     private $new_param_sinks = [];
 
     /**
-     * @var array<string, bool>
+     * @var array<string, ?TypeSource>
      */
     private $new_return_sinks = [];
 
     /**
-     * @var array<string, array<int, bool>>
+     * @var array<string, array<int, ?TypeSource>>
      */
     private $new_param_sources = [];
 
     /**
-     * @var array<string, bool>
+     * @var array<string, ?TypeSource>
      */
     private $new_return_sources = [];
 
     /**
-     * @var array<string, array<int, bool>>
+     * @var array<string, array<int, ?TypeSource>>
      */
     private $previous_param_sinks = [];
 
     /**
-     * @var array<string, bool>
+     * @var array<string, ?TypeSource>
      */
     private $previous_return_sinks = [];
 
     /**
-     * @var array<string, array<int, bool>>
+     * @var array<string, array<int, ?TypeSource>>
      */
     private $previous_param_sources = [];
 
     /**
-     * @var array<string, bool>
+     * @var array<string, ?TypeSource>
      */
     private $previous_return_sources = [];
 
     /**
-     * @var array<string, array<int, bool>>
+     * @var array<string, array<int, ?TypeSource>>
      */
     private $archived_param_sinks = [];
 
     /**
-     * @var array<string, bool>
+     * @var array<string, ?TypeSource>
      */
     private $archived_return_sinks = [];
 
     /**
-     * @var array<string, array<int, bool>>
+     * @var array<string, array<int, ?TypeSource>>
      */
     private $archived_param_sources = [];
 
     /**
-     * @var array<string, bool>
+     * @var array<string, ?TypeSource>
      */
     private $archived_return_sources = [];
 
@@ -135,7 +135,8 @@ class Taint
     public function addSources(
         StatementsAnalyzer $statements_analyzer,
         array $sources,
-        \Psalm\CodeLocation $code_location
+        \Psalm\CodeLocation $code_location,
+        ?TypeSource $previous_source
     ) : void {
         foreach ($sources as $source) {
             if ($this->hasExistingSource($source)) {
@@ -155,11 +156,11 @@ class Taint
             }
 
             if ($source->argument_offset !== null) {
-                $this->new_param_sources[strtolower($source->method_id)][$source->argument_offset] = true;
+                $this->new_param_sources[strtolower($source->method_id)][$source->argument_offset] = $previous_source;
             }
 
             if ($source->from_return_type) {
-                $this->new_return_sources[strtolower($source->method_id)] = true;
+                $this->new_return_sources[strtolower($source->method_id)] = $previous_source;
             }
         }
     }
@@ -170,7 +171,8 @@ class Taint
     public function addSinks(
         StatementsAnalyzer $statements_analyzer,
         array $sources,
-        \Psalm\CodeLocation $code_location
+        \Psalm\CodeLocation $code_location,
+        ?TypeSource $previous_source
     ) : void {
         foreach ($sources as $source) {
             if ($this->hasExistingSink($source)) {
@@ -190,11 +192,11 @@ class Taint
             }
 
             if ($source->argument_offset !== null) {
-                $this->new_param_sinks[strtolower($source->method_id)][$source->argument_offset] = true;
+                $this->new_param_sinks[strtolower($source->method_id)][$source->argument_offset] = $previous_source;
             }
 
             if ($source->from_return_type) {
-                $this->new_return_sinks[strtolower($source->method_id)] = true;
+                $this->new_return_sinks[strtolower($source->method_id)] = $previous_source;
             }
         }
     }

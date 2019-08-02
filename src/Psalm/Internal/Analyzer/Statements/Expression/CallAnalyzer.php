@@ -2378,8 +2378,6 @@ class CallAnalyzer
         if ($codebase->taint && $cased_method_id) {
             $method_source = new TypeSource($cased_method_id, $argument_offset, false);
 
-            $all_possible_sources = [$method_source];
-
             if (($is_sink || $codebase->taint->hasPreviousSink($method_source))
                 && $input_type->sources
             ) {
@@ -2400,7 +2398,7 @@ class CallAnalyzer
                         $class_storage = $codebase->classlike_storage_provider->get($fq_classlike_name);
 
                         foreach ($class_storage->dependent_classlikes as $dependent_classlike => $_) {
-                            $all_possible_sources[] = new TypeSource(
+                            $all_possible_sinks[] = new TypeSource(
                                 $dependent_classlike . '::' . $method_name,
                                 $argument_offset,
                                 false
@@ -2418,45 +2416,36 @@ class CallAnalyzer
                 $codebase->taint->addSinks(
                     $statements_analyzer,
                     $all_possible_sinks,
-                    $code_location
+                    $code_location,
+                    $method_source
                 );
             }
 
-            if ($input_type->tainted) {
-                if (strpos($cased_method_id, '::')) {
-                    list($fq_classlike_name, $method_name) = explode('::', $cased_method_id);
-
-                    $method_name = strtolower($method_name);
-
-                    $class_storage = $codebase->classlike_storage_provider->get($fq_classlike_name);
-
-                    foreach ($class_storage->dependent_classlikes as $dependent_classlike => $_) {
-                        $all_possible_sources[] = new TypeSource(
-                            $dependent_classlike . '::' . $method_name,
-                            $argument_offset,
-                            false
+            if ($input_type->sources) {
+                foreach ($input_type->sources as $type_source) {
+                    if ($codebase->taint->hasPreviousSource($type_source)) {
+                        $codebase->taint->addSources(
+                            $statements_analyzer,
+                            [$method_source],
+                            $code_location,
+                            $type_source
                         );
                     }
-
-                    if (isset($class_storage->overridden_method_ids[$method_name])) {
-                        foreach ($class_storage->overridden_method_ids[$method_name] as $parent_method_id) {
-                            $all_possible_sources[] = new TypeSource($parent_method_id, $argument_offset, false);
-                        }
-                    }
                 }
-
-                $codebase->taint->addSources(
+            } elseif ($input_type->tainted) {
+                 $codebase->taint->addSources(
                     $statements_analyzer,
-                    $all_possible_sources,
-                    $code_location
+                    [$method_source],
+                    $code_location,
+                    null
                 );
+            }
 
-                if ($assert_untainted) {
-                    $input_type = clone $input_type;
-                    $replace_input_type = true;
-                    $input_type->tainted = null;
-                    $input_type->sources = [];
-                }
+            if ($assert_untainted) {
+                $input_type = clone $input_type;
+                $replace_input_type = true;
+                $input_type->tainted = null;
+                $input_type->sources = [];
             }
         }
 

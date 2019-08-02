@@ -173,16 +173,29 @@ class ReturnAnalyzer
                             $codebase->taint->addSinks(
                                 $statements_analyzer,
                                 $inferred_type->sources,
-                                new CodeLocation($source, $stmt->expr)
+                                new CodeLocation($source, $stmt->expr),
+                                $method_source
                             );
                         }
                     }
 
-                    if ($inferred_type->tainted) {
+                    if ($inferred_type->sources) {
+                        foreach ($inferred_type->sources as $type_source) {
+                            if ($codebase->taint->hasPreviousSource($type_source)) {
+                                $codebase->taint->addSources(
+                                    $statements_analyzer,
+                                    [$method_source],
+                                    new CodeLocation($source, $stmt->expr),
+                                    $type_source
+                                );
+                            }
+                        }
+                    } elseif ($inferred_type->tainted) {
                         $codebase->taint->addSources(
                             $statements_analyzer,
                             [$method_source],
-                            new CodeLocation($source, $stmt->expr)
+                            new CodeLocation($source, $stmt->expr),
+                            null
                         );
                     }
                 }

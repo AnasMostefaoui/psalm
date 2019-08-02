@@ -73,19 +73,21 @@ class Taint
      */
     private $archived_return_sources = [];
 
-    public function hasExistingSink(TypeSource $source) : bool
+    public function hasExistingSink(TypeSource $source) : ?TypeSource
     {
         if ($source->argument_offset !== null) {
-            return isset($this->archived_param_sinks[strtolower($source->method_id)][$source->argument_offset])
-                || isset($this->previous_param_sinks[strtolower($source->method_id)][$source->argument_offset]);
+            return $this->archived_param_sinks[strtolower($source->method_id)][$source->argument_offset]
+                ?? ($this->previous_param_sinks[strtolower($source->method_id)][$source->argument_offset]
+                ?? null);
         }
 
         if ($source->from_return_type) {
-            return isset($this->archived_return_sinks[strtolower($source->method_id)])
-                || isset($this->previous_return_sinks[strtolower($source->method_id)]);
+            return $this->archived_return_sinks[strtolower($source->method_id)]
+                ?? ($this->previous_return_sinks[strtolower($source->method_id)]
+                ?? null);
         }
 
-        return false;
+        return null;
     }
 
     public function hasPreviousSink(TypeSource $source) : bool
@@ -114,19 +116,21 @@ class Taint
         return false;
     }
 
-    public function hasExistingSource(TypeSource $source) : bool
+    public function hasExistingSource(TypeSource $source) : ?TypeSource
     {
         if ($source->argument_offset !== null) {
-            return isset($this->archived_param_sources[strtolower($source->method_id)][$source->argument_offset])
-                || isset($this->previous_param_sources[strtolower($source->method_id)][$source->argument_offset]);
+            return $this->archived_param_sources[strtolower($source->method_id)][$source->argument_offset]
+                ?? $this->previous_param_sources[strtolower($source->method_id)][$source->argument_offset]
+                ?? null;
         }
 
         if ($source->from_return_type) {
-            return isset($this->archived_return_sources[strtolower($source->method_id)])
-                || isset($this->previous_return_sources[strtolower($source->method_id)]);
+            return $this->archived_return_sources[strtolower($source->method_id)]
+                ?? $this->previous_return_sources[strtolower($source->method_id)]
+                ?? null;
         }
 
-        return false;
+        return null;
     }
 
     /**
@@ -143,10 +147,10 @@ class Taint
                 continue;
             }
 
-            if ($this->hasExistingSink($source)) {
+            if ($next_source = $this->hasExistingSink($source)) {
                 if (IssueBuffer::accepts(
                     new TaintedInput(
-                        'Something is bad here',
+                        'Something is bad here ' . $next_source->method_id,
                         $code_location
                     ),
                     $statements_analyzer->getSuppressedIssues()
@@ -179,10 +183,10 @@ class Taint
                 continue;
             }
 
-            if ($this->hasExistingSource($source)) {
+            if ($next_source = $this->hasExistingSource($source)) {
                 if (IssueBuffer::accepts(
                     new TaintedInput(
-                        'Something is bad here',
+                        'Something is bad here ' . $next_source->method_id,
                         $code_location
                     ),
                     $statements_analyzer->getSuppressedIssues()

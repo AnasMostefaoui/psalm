@@ -2407,7 +2407,11 @@ class CallAnalyzer
 
                         if (isset($class_storage->overridden_method_ids[$method_name])) {
                             foreach ($class_storage->overridden_method_ids[$method_name] as $parent_method_id) {
-                                $all_possible_sinks[] = new TypeSource($parent_method_id, $argument_offset, false);
+                                $all_possible_sinks[] = new TypeSource(
+                                    $parent_method_id,
+                                    $argument_offset,
+                                    false
+                                );
                             }
                         }
                     }
@@ -2423,7 +2427,7 @@ class CallAnalyzer
 
             if ($input_type->sources) {
                 foreach ($input_type->sources as $type_source) {
-                    if ($codebase->taint->hasPreviousSource($type_source)) {
+                    if ($codebase->taint->hasPreviousSource($type_source) || $input_type->tainted) {
                         $codebase->taint->addSources(
                             $statements_analyzer,
                             [$method_source],
@@ -2432,13 +2436,6 @@ class CallAnalyzer
                         );
                     }
                 }
-            } elseif ($input_type->tainted) {
-                 $codebase->taint->addSources(
-                    $statements_analyzer,
-                    [$method_source],
-                    $code_location,
-                    null
-                );
             }
 
             if ($assert_untainted) {

@@ -41,10 +41,49 @@ class TaintTest extends TestCase
     /**
      * @return void
      */
-    public function testTaintedInputFromParam()
+    public function testSinkAnnotation()
     {
         $this->expectException(\Psalm\Exception\CodeException::class);
         $this->expectExceptionMessage('TaintedInput');
+
+        $this->project_analyzer->trackTaintedInputs();
+
+        $this->addFile(
+            'somefile.php',
+            '<?php
+                class A {
+                    public function getUserId() : string {
+                        return (string) $_GET["user_id"];
+                    }
+
+                    public function getAppendedUserId() : string {
+                        return "aaaa" . $this->getUserId();
+                    }
+
+                    public function deleteUser(PDOWrapper $pdo) : void {
+                        $userId = $this->getAppendedUserId();
+                        $pdo->exec("delete from users where user_id = " . $userId);
+                    }
+                }
+
+                class PDOWrapper {
+                    /**
+                     * @psalm-taint-sink $sql
+                     */
+                    public function exec(string $sql) : void {}
+                }'
+        );
+
+        $this->analyzeFile('somefile.php', new Context());
+    }
+
+    /**
+     * @return void
+     */
+    public function testTaintedInputFromParam()
+    {
+        $this->expectException(\Psalm\Exception\CodeException::class);
+        $this->expectExceptionMessage('TaintedInput - somefile.php:8:32 - in path $_get return type -> a::getuserid return type out path a::getappendeduserid return type -> a::deleteuser arg 2 -> pdo::exec arg 1');
 
         $this->project_analyzer->trackTaintedInputs();
 
@@ -114,7 +153,7 @@ class TaintTest extends TestCase
     public function testTaintedInParentLoader()
     {
         $this->expectException(\Psalm\Exception\CodeException::class);
-        $this->expectExceptionMessage('TaintedInput');
+        $this->expectExceptionMessage('TaintedInput - somefile.php:6:45 - in path $_get return type -> c::foo arg 1 -> agrandchild::loadfull arg 1 out path a::loadpartial arg 1 -> pdo::exec arg 1');
 
         $this->project_analyzer->trackTaintedInputs();
 

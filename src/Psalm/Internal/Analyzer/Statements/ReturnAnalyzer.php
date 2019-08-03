@@ -181,7 +181,7 @@ class ReturnAnalyzer
 
                     if ($inferred_type->sources) {
                         foreach ($inferred_type->sources as $type_source) {
-                            if ($codebase->taint->hasPreviousSource($type_source)) {
+                            if ($codebase->taint->hasPreviousSource($type_source) || $inferred_type->tainted) {
                                 $codebase->taint->addSources(
                                     $statements_analyzer,
                                     [$method_source],
@@ -191,12 +191,7 @@ class ReturnAnalyzer
                             }
                         }
                     } elseif ($inferred_type->tainted) {
-                        $codebase->taint->addSources(
-                            $statements_analyzer,
-                            [$method_source],
-                            new CodeLocation($source, $stmt->expr),
-                            null
-                        );
+                        var_dump('here');
                     }
                 }
 

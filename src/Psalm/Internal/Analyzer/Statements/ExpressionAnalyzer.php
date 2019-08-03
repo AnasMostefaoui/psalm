@@ -526,6 +526,7 @@ class ExpressionAnalyzer
 
             if (isset($stmt->expr->inferredType) && $stmt->expr->inferredType->tainted) {
                 $stmt->inferredType->tainted = $stmt->expr->inferredType->tainted;
+                $stmt->inferredType->sources = $stmt->expr->inferredType->sources;
             }
         } elseif ($stmt instanceof PhpParser\Node\Expr\Cast\Object_) {
             if (self::analyze($statements_analyzer, $stmt->expr, $context) === false) {

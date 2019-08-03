@@ -15,7 +15,7 @@ class TypeSource
 
     public function __construct(string $method_id, ?int $argument_offset, bool $from_return_type)
     {
-        $this->method_id = $method_id;
+        $this->method_id = strtolower($method_id);
         $this->argument_offset = $argument_offset;
         $this->from_return_type = $from_return_type;
     }

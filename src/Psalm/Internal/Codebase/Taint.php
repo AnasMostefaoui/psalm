@@ -14,77 +14,73 @@ use function strtolower;
 class Taint
 {
     /**
-     * @var array<string, array<int, ?TypeSource>>
+     * @var array<string, array<int, TypeSource>>
      */
     private $new_param_sinks = [];
 
     /**
-     * @var array<string, ?TypeSource>
+     * @var array<string, TypeSource>
      */
     private $new_return_sinks = [];
 
     /**
-     * @var array<string, array<int, ?TypeSource>>
+     * @var array<string, array<int, TypeSource>>
      */
     private $new_param_sources = [];
 
     /**
-     * @var array<string, ?TypeSource>
+     * @var array<string, TypeSource>
      */
     private $new_return_sources = [];
 
     /**
-     * @var array<string, array<int, ?TypeSource>>
+     * @var array<string, array<int, TypeSource>>
      */
     private $previous_param_sinks = [];
 
     /**
-     * @var array<string, ?TypeSource>
+     * @var array<string, TypeSource>
      */
     private $previous_return_sinks = [];
 
     /**
-     * @var array<string, array<int, ?TypeSource>>
+     * @var array<string, array<int, TypeSource>>
      */
     private $previous_param_sources = [];
 
     /**
-     * @var array<string, ?TypeSource>
+     * @var array<string, TypeSource>
      */
     private $previous_return_sources = [];
 
     /**
-     * @var array<string, array<int, ?TypeSource>>
+     * @var array<string, array<int, TypeSource>>
      */
     private $archived_param_sinks = [];
 
     /**
-     * @var array<string, ?TypeSource>
+     * @var array<string, TypeSource>
      */
     private $archived_return_sinks = [];
 
     /**
-     * @var array<string, array<int, ?TypeSource>>
+     * @var array<string, array<int, TypeSource>>
      */
     private $archived_param_sources = [];
 
     /**
-     * @var array<string, ?TypeSource>
+     * @var array<string, TypeSource>
      */
     private $archived_return_sources = [];
 
     public function hasExistingSink(TypeSource $source) : ?TypeSource
     {
         if ($source->argument_offset !== null) {
-            return $this->archived_param_sinks[strtolower($source->method_id)][$source->argument_offset]
-                ?? ($this->previous_param_sinks[strtolower($source->method_id)][$source->argument_offset]
-                ?? null);
+            return $this->archived_param_sinks[$source->method_id][$source->argument_offset] ?? null;
         }
 
         if ($source->from_return_type) {
-            return $this->archived_return_sinks[strtolower($source->method_id)]
-                ?? ($this->previous_return_sinks[strtolower($source->method_id)]
-                ?? null);
+            return $this->archived_return_sinks[$source->method_id] ?? null;
         }
 
         return null;
@@ -93,11 +89,11 @@ class Taint
     public function hasPreviousSink(TypeSource $source) : bool
     {
         if ($source->argument_offset !== null) {
-            return isset($this->previous_param_sinks[strtolower($source->method_id)][$source->argument_offset]);
+            return isset($this->previous_param_sinks[$source->method_id][$source->argument_offset]);
         }
 
         if ($source->from_return_type) {
-            return isset($this->previous_return_sinks[strtolower($source->method_id)]);
+            return isset($this->previous_return_sinks[$source->method_id]);
         }
 
         return false;
@@ -106,11 +102,11 @@ class Taint
     public function hasPreviousSource(TypeSource $source) : bool
     {
         if ($source->argument_offset !== null) {
-            return isset($this->previous_param_sources[strtolower($source->method_id)][$source->argument_offset]);
+            return isset($this->previous_param_sources[$source->method_id][$source->argument_offset]);
         }
 
         if ($source->from_return_type) {
-            return isset($this->previous_return_sources[strtolower($source->method_id)]);
+            return isset($this->previous_return_sources[$source->method_id]);
         }
 
         return false;
@@ -119,15 +115,11 @@ class Taint
     public function hasExistingSource(TypeSource $source) : ?TypeSource
     {
         if ($source->argument_offset !== null) {
-            return $this->archived_param_sources[strtolower($source->method_id)][$source->argument_offset]
-                ?? $this->previous_param_sources[strtolower($source->method_id)][$source->argument_offset]
-                ?? null;
+            return $this->archived_param_sources[$source->method_id][$source->argument_offset] ?? null;
         }
 
         if ($source->from_return_type) {
-            return $this->archived_return_sources[strtolower($source->method_id)]
-                ?? $this->previous_return_sources[strtolower($source->method_id)]
-                ?? null;
+            return $this->archived_return_sources[$source->method_id] ?? null;
         }
 
         return null;
@@ -140,17 +132,17 @@ class Taint
         StatementsAnalyzer $statements_analyzer,
         array $sources,
         \Psalm\CodeLocation $code_location,
-        ?TypeSource $previous_source
+        TypeSource $previous_source
     ) : void {
         foreach ($sources as $source) {
             if ($this->hasExistingSource($source)) {
                 continue;
             }
 
-            if ($next_source = $this->hasExistingSink($source)) {
+            if ($this->hasExistingSink($source)) {
                 if (IssueBuffer::accepts(
                     new TaintedInput(
-                        'Something is bad here ' . $next_source->method_id,
+                        'in path ' . $this->getPredecessorPath($previous_source) . ' out path ' . $this->getSuccessorPath($source),
                         $code_location
                     ),
                     $statements_analyzer->getSuppressedIssues()
@@ -160,13 +152,79 @@ class Taint
             }
 
             if ($source->argument_offset !== null) {
-                $this->new_param_sources[strtolower($source->method_id)][$source->argument_offset] = $previous_source;
+                $this->new_param_sources[$source->method_id][$source->argument_offset] = $previous_source;
             }
 
             if ($source->from_return_type) {
-                $this->new_return_sources[strtolower($source->method_id)] = $previous_source;
+                $this->new_return_sources[$source->method_id] = $previous_source;
             }
         }
+    }
+
+    public function getPredecessorPath(TypeSource $source) : string
+    {
+        if ($source->argument_offset !== null) {
+            $source_descriptor = $source->method_id . ' arg ' . ($source->argument_offset + 1);
+
+            if ($previous_source
+                = $this->new_param_sources[$source->method_id][$source->argument_offset]
+                    ?? $this->archived_param_sources[$source->method_id][$source->argument_offset]
+                    ?? null
+            ) {
+                return $this->getPredecessorPath($previous_source) . ' -> ' . $source_descriptor;
+            }
+
+            return $source_descriptor;
+        }
+
+        if ($source->from_return_type) {
+            $source_descriptor = $source->method_id . ' return type';
+
+            if ($previous_source
+                = $this->new_return_sources[$source->method_id]
+                    ?? $this->archived_return_sources[$source->method_id]
+                    ?? null
+            ) {
+                return $this->getPredecessorPath($previous_source) . ' -> ' . $source_descriptor;
+            }
+
+            return $source_descriptor;
+        }
+
+        return '';
+    }
+
+    public function getSuccessorPath(TypeSource $source) : string
+    {
+        if ($source->argument_offset !== null) {
+            $source_descriptor = $source->method_id . ' arg ' . ($source->argument_offset + 1);
+
+            if ($next_source
+                = $this->new_param_sinks[$source->method_id][$source->argument_offset]
+                    ?? $this->archived_param_sinks[$source->method_id][$source->argument_offset]
+                    ?? null
+            ) {
+                return $source_descriptor . ' -> ' . $this->getSuccessorPath($next_source);
+            }
+
+            return $source_descriptor;
+        }
+
+        if ($source->from_return_type) {
+            $source_descriptor = $source->method_id . ' return type';
+
+            if ($next_source
+                = $this->new_return_sinks[$source->method_id]
+                    ?? $this->archived_return_sinks[$source->method_id]
+                    ?? null
+            ) {
+                return $source_descriptor . ' -> ' .$this->getSuccessorPath($next_source);
+            }
+
+            return $source_descriptor;
+        }
+
+        return '';
     }
 
     /**
@@ -176,17 +234,17 @@ class Taint
         StatementsAnalyzer $statements_analyzer,
         array $sources,
         \Psalm\CodeLocation $code_location,
-        ?TypeSource $previous_source
+        TypeSource $previous_source
     ) : void {
         foreach ($sources as $source) {
             if ($this->hasExistingSink($source)) {
                 continue;
             }
 
-            if ($next_source = $this->hasExistingSource($source)) {
+            if ($this->hasExistingSource($source)) {
                 if (IssueBuffer::accepts(
                     new TaintedInput(
-                        'Something is bad here ' . $next_source->method_id,
+                        'in path ' . $this->getPredecessorPath($source) . ' out path ' . $this->getSuccessorPath($previous_source),
                         $code_location
                     ),
                     $statements_analyzer->getSuppressedIssues()
@@ -196,11 +254,11 @@ class Taint
             }
 
             if ($source->argument_offset !== null) {
-                $this->new_param_sinks[strtolower($source->method_id)][$source->argument_offset] = $previous_source;
+                $this->new_param_sinks[$source->method_id][$source->argument_offset] = $previous_source;
             }
 
             if ($source->from_return_type) {
-                $this->new_return_sinks[strtolower($source->method_id)] = $previous_source;
+                $this->new_return_sinks[$source->method_id] = $previous_source;
             }
         }
     }

@@ -2403,7 +2403,7 @@ class CallAnalyzer
                         foreach ($class_storage->dependent_classlikes as $dependent_classlike => $_) {
                             $all_possible_sinks[] = new TypeSource(
                                 $dependent_classlike . '::' . $method_name,
-                                $argument_offset,
+                                $source->argument_offset,
                                 false,
                                 $code_location
                             );
@@ -2413,7 +2413,7 @@ class CallAnalyzer
                             foreach ($class_storage->overridden_method_ids[$method_name] as $parent_method_id) {
                                 $all_possible_sinks[] = new TypeSource(
                                     $parent_method_id,
-                                    $argument_offset,
+                                    $source->argument_offset,
                                     false,
                                     $code_location
                                 );

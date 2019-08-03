@@ -41,6 +41,46 @@ class TaintTest extends TestCase
     /**
      * @return void
      */
+    public function testTaintedInputFromReturnTypeWithBranch()
+    {
+        $this->expectException(\Psalm\Exception\CodeException::class);
+        $this->expectExceptionMessage('TaintedInput');
+
+        $this->project_analyzer->trackTaintedInputs();
+
+        $this->addFile(
+            'somefile.php',
+            '<?php
+                class A {
+                    public function getUserId() : string {
+                        return (string) $_GET["user_id"];
+                    }
+
+                    public function getAppendedUserId() : string {
+                        $userId = $this->getUserId();
+
+                        if (rand(0, 1)) {
+                            $userId .= "aaa";
+                        } else {
+                            $userId .= "bb";
+                        }
+
+                        return $userId;
+                    }
+
+                    public function deleteUser(PDO $pdo) : void {
+                        $userId = $this->getAppendedUserId();
+                        $pdo->exec("delete from users where user_id = " . $userId);
+                    }
+                }'
+        );
+
+        $this->analyzeFile('somefile.php', new Context());
+    }
+
+    /**
+     * @return void
+     */
     public function testSinkAnnotation()
     {
         $this->expectException(\Psalm\Exception\CodeException::class);
@@ -83,7 +123,7 @@ class TaintTest extends TestCase
     public function testTaintedInputFromParam()
     {
         $this->expectException(\Psalm\Exception\CodeException::class);
-        $this->expectExceptionMessage('TaintedInput - somefile.php:8:32 - in path $_get return type -> a::getuserid return type out path a::getappendeduserid return type -> a::deleteuser arg 2 -> pdo::exec arg 1');
+        $this->expectExceptionMessage('TaintedInput - somefile.php:8:32 - in path $_get return type (somefile.php:4:41) -> a::getuserid return type (somefile.php:8:48) out path a::getappendeduserid return value (somefile.php:8:32) -> a::deleteuser arg 2 (somefile.php:13:49) -> pdo::exec arg 1 (somefile.php:17:36)');
 
         $this->project_analyzer->trackTaintedInputs();
 
@@ -153,7 +193,7 @@ class TaintTest extends TestCase
     public function testTaintedInParentLoader()
     {
         $this->expectException(\Psalm\Exception\CodeException::class);
-        $this->expectExceptionMessage('TaintedInput - somefile.php:6:45 - in path $_get return type -> c::foo arg 1 -> agrandchild::loadfull arg 1 out path a::loadpartial arg 1 -> pdo::exec arg 1');
+        $this->expectExceptionMessage('TaintedInput - somefile.php:6:45 - in path $_get return type (somefile.php:28:39) -> c::foo arg 1 (somefile.php:23:48) -> agrandchild::loadfull arg 1 (somefile.php:6:45) out path a::loadpartial arg 1 (somefile.php:6:45) -> pdo::exec arg 1 (somefile.php:16:40)');
 
         $this->project_analyzer->trackTaintedInputs();
 

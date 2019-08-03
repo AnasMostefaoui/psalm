@@ -991,10 +991,11 @@ class StaticCallAnalyzer extends \Psalm\Internal\Analyzer\Statements\Expression\
 
                 if ($return_type_candidate) {
                     if ($codebase->taint && $method_id) {
-                        $method_source = new TypeSource($method_id, null, true);
+                        $method_source = new TypeSource($method_id, null, true, new CodeLocation($source, $stmt->name));
 
                         if ($codebase->taint->hasPreviousSource($method_source)) {
                             $return_type_candidate->tainted = 1;
+                            $return_type_candidate->sources = [$method_source];
                         }
                     }
 

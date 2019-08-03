@@ -2376,7 +2376,7 @@ class CallAnalyzer
         }
 
         if ($codebase->taint && $cased_method_id) {
-            $method_source = new TypeSource($cased_method_id, $argument_offset, false);
+            $method_source = new TypeSource($cased_method_id, $argument_offset, false, $code_location);
 
             if (($is_sink || $codebase->taint->hasPreviousSink($method_source))
                 && $input_type->sources
@@ -2401,7 +2401,8 @@ class CallAnalyzer
                             $all_possible_sinks[] = new TypeSource(
                                 $dependent_classlike . '::' . $method_name,
                                 $argument_offset,
-                                false
+                                false,
+                                $code_location
                             );
                         }
 
@@ -2410,7 +2411,8 @@ class CallAnalyzer
                                 $all_possible_sinks[] = new TypeSource(
                                     $parent_method_id,
                                     $argument_offset,
-                                    false
+                                    false,
+                                    $code_location
                                 );
                             }
                         }
@@ -2436,6 +2438,12 @@ class CallAnalyzer
                         );
                     }
                 }
+            } elseif ($input_type->tainted) {
+                throw new \UnexpectedValueException(
+                    'sources should exist for tainted var in '
+                        . $statements_analyzer->getFileName() . ':'
+                        . $input_expr->getLine()
+                );
             }
 
             if ($assert_untainted) {

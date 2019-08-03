@@ -1459,6 +1459,12 @@ abstract class Type
             $combined_type->possibly_undefined = true;
         }
 
+        if ($type_1->sources || $type_2->sources) {
+            $combined_type->sources = array_unique(
+                array_merge($type_1->sources ?: [], $type_2->sources ?: [])
+            );
+        }
+
         return $combined_type;
     }
 

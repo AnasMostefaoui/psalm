@@ -164,7 +164,8 @@ class Taint
     public function getPredecessorPath(TypeSource $source) : string
     {
         if ($source->argument_offset !== null) {
-            $source_descriptor = $source->method_id . ' arg ' . ($source->argument_offset + 1);
+            $source_descriptor = $source->method_id . ' arg ' . ($source->argument_offset + 1)
+                . ($source->code_location ? ' (' . $source->code_location->getShortSummary() . ')' : '');
 
             if ($previous_source
                 = $this->new_param_sources[$source->method_id][$source->argument_offset]
@@ -178,7 +179,8 @@ class Taint
         }
 
         if ($source->from_return_type) {
-            $source_descriptor = $source->method_id . ' return type';
+            $source_descriptor = $source->method_id . ' return type'
+                . ($source->code_location ? ' (' . $source->code_location->getShortSummary() . ')' : '');
 
             if ($previous_source
                 = $this->new_return_sources[$source->method_id]
@@ -197,7 +199,8 @@ class Taint
     public function getSuccessorPath(TypeSource $source) : string
     {
         if ($source->argument_offset !== null) {
-            $source_descriptor = $source->method_id . ' arg ' . ($source->argument_offset + 1);
+            $source_descriptor = $source->method_id . ' arg ' . ($source->argument_offset + 1)
+                . ($source->code_location ? ' (' . $source->code_location->getShortSummary() . ')' : '');
 
             if ($next_source
                 = $this->new_param_sinks[$source->method_id][$source->argument_offset]
@@ -211,7 +214,8 @@ class Taint
         }
 
         if ($source->from_return_type) {
-            $source_descriptor = $source->method_id . ' return type';
+            $source_descriptor = $source->method_id . ' return value'
+                . ($source->code_location ? ' (' . $source->code_location->getShortSummary() . ')' : '');
 
             if ($next_source
                 = $this->new_return_sinks[$source->method_id]
@@ -265,6 +269,11 @@ class Taint
 
     public function hasNewSinksAndSources() : bool
     {
+        /*echo count($this->new_param_sinks)
+            . ' ' . count($this->new_return_sinks)
+            . ' ' . count($this->new_param_sources)
+            . ' ' . count($this->new_return_sources)
+            . "\n\n"; */
         return ($this->new_param_sinks || $this->new_return_sinks)
             && ($this->new_param_sources || $this->new_return_sources);
     }

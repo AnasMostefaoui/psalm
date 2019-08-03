@@ -26,6 +26,7 @@ use Psalm\IssueBuffer;
 use Psalm\Type;
 use function explode;
 use function strtolower;
+use UnexpectedValueException;
 
 /**
  * @internal
@@ -166,7 +167,7 @@ class ReturnAnalyzer
                 );
 
                 if ($codebase->taint) {
-                    $method_source = new TypeSource($cased_method_id, null, true);
+                    $method_source = new TypeSource($cased_method_id, null, true, new CodeLocation($source, $stmt->expr));
 
                     if ($codebase->taint->hasPreviousSink($method_source)) {
                         if ($inferred_type->sources) {
@@ -191,7 +192,11 @@ class ReturnAnalyzer
                             }
                         }
                     } elseif ($inferred_type->tainted) {
-                        var_dump('here');
+                        throw new \UnexpectedValueException(
+                            'sources should exist for tainted var in '
+                                . $statements_analyzer->getFileName() . ':'
+                                . $stmt->getLine()
+                        );
                     }
                 }
 

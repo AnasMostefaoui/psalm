@@ -56,6 +56,7 @@ use function preg_replace;
 use function is_int;
 use function substr;
 use function array_merge;
+use Psalm\Issue\TaintedInput;
 
 /**
  * @internal
@@ -2385,15 +2386,6 @@ class CallAnalyzer
             ) {
                 $all_possible_sinks = [];
 
-                if (!$has_previous_sink) {
-                    $codebase->taint->addSinks(
-                        $statements_analyzer,
-                        [$method_source],
-                        $code_location,
-                        null
-                    );
-                }
-
                 foreach ($input_type->sources as $source) {
                     if ($codebase->taint->hasExistingSink($source)) {
                         continue;
@@ -2438,7 +2430,18 @@ class CallAnalyzer
                 );
             }
 
-            if ($input_type->sources) {
+            if ($is_sink && $input_type->tainted) {
+                if (IssueBuffer::accepts(
+                    new TaintedInput(
+                        'in path ' . $codebase->taint->getPredecessorPath($method_source)
+                            . ' out path ' . $codebase->taint->getSuccessorPath($method_source),
+                        $code_location
+                    ),
+                    $statements_analyzer->getSuppressedIssues()
+                )) {
+                    // fall through
+                }
+            } elseif ($input_type->sources) {
                 foreach ($input_type->sources as $type_source) {
                     if ($codebase->taint->hasPreviousSource($type_source) || $input_type->tainted) {
                         $codebase->taint->addSources(

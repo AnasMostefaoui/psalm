@@ -174,7 +174,7 @@ class Taint
                 continue;
             }
 
-            if (($next_source = $this->hasNewOrExistingSink($source))
+            if (($next_source = $this->hasExistingSink($source))
                 && (!$previous_source || (string) $previous_source === (string) $next_source)
             ) {
                 if (IssueBuffer::accepts(
@@ -287,7 +287,7 @@ class Taint
                 continue;
             }
 
-            if ($this->hasNewOrExistingSource($source)) {
+            if ($next_source = $this->hasExistingSource($source)) {
                 if (IssueBuffer::accepts(
                     new TaintedInput(
                         'in path ' . $this->getPredecessorPath($source)

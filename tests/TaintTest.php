@@ -344,7 +344,7 @@ class TaintTest extends TestCase
     public function testTaintedInputToParamAlternatePath()
     {
         $this->expectException(\Psalm\Exception\CodeException::class);
-        $this->expectExceptionMessage('TaintedInput - somefile.php:12:32 - in path $_get return type (somefile.php:7:63) -> a::getappendeduserid arg 1 (somefile.php:11:62) out path a::getappendeduserid return value (somefile.php:12:32) -> a::deleteuser arg 3 (somefile.php:7:29) -> pdo::exec arg 1 (somefile.php:23:40)');
+        $this->expectExceptionMessage('TaintedInput - somefile.php:7:29 - in path $_get return type (somefile.php:7:63) -> a::getappendeduserid arg 1 (somefile.php:11:62) -> a::getappendeduserid return type (somefile.php:7:36) out path a::deleteuser arg 3 (somefile.php:7:29) -> pdo::exec arg 1 (somefile.php:23:40)');
 
         $this->project_analyzer->trackTaintedInputs();
 

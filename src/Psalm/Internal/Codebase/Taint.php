@@ -174,9 +174,7 @@ class Taint
                 continue;
             }
 
-            if (($next_source = $this->hasExistingSink($source))
-                && (!$previous_source || (string) $previous_source === (string) $next_source)
-            ) {
+            if ($next_source = $this->hasExistingSink($source)) {
                 if (IssueBuffer::accepts(
                     new TaintedInput(
                         ($previous_source ? 'in path ' . $this->getPredecessorPath($previous_source) : '')
@@ -312,26 +310,27 @@ class Taint
 
     public function hasNewSinksAndSources() : bool
     {
-        /*echo count($this->new_param_sinks)
-            . ' ' . count($this->new_return_sinks)
-            . ' ' . count($this->new_param_sources)
-            . ' ' . count($this->new_return_sources)
-            . "\n\n"; */
         return ($this->new_param_sinks || $this->new_return_sinks)
             && ($this->new_param_sources || $this->new_return_sources);
     }
 
     public function addThreadData(self $taint) : void
     {
-        $this->new_param_sinks = array_merge_recursive(
-            $this->new_param_sinks,
-            $taint->new_param_sinks
-        );
+        foreach ($taint->new_param_sinks as $method_id => $arg_locations) {
+            if (isset($this->new_param_sinks[$method_id])) {
+                $this->new_param_sinks[$method_id] += $arg_locations;
+            } else {
+                $this->new_param_sinks[$method_id] = $arg_locations;
+            }
+        }
 
-        $this->new_param_sources = array_merge_recursive(
-            $this->new_param_sources,
-            $taint->new_param_sources
-        );
+        foreach ($taint->new_param_sources as $method_id => $arg_locations) {
+            if (isset($this->new_param_sources[$method_id])) {
+                $this->new_param_sources[$method_id] += $arg_locations;
+            } else {
+                $this->new_param_sources[$method_id] = $arg_locations;
+            }
+        }
 
         $this->new_return_sinks = array_merge(
             $this->new_return_sinks,
@@ -346,10 +345,13 @@ class Taint
 
     public function clearNewSinksAndSources() : void
     {
-        $this->archived_param_sinks = array_merge_recursive(
-            $this->archived_param_sinks,
-            $this->new_param_sinks
-        );
+        foreach ($this->new_param_sinks as $method_id => $arg_locations) {
+            if (isset($this->archived_param_sinks[$method_id])) {
+                $this->archived_param_sinks[$method_id] += $arg_locations;
+            } else {
+                $this->archived_param_sinks[$method_id] = $arg_locations;
+            }
+        }
 
         $this->archived_return_sinks = array_merge(
             $this->archived_return_sinks,
@@ -362,10 +364,13 @@ class Taint
         $this->new_param_sinks = [];
         $this->new_return_sinks = [];
 
-        $this->archived_param_sources = array_merge_recursive(
-            $this->archived_param_sources,
-            $this->new_param_sources
-        );
+        foreach ($this->new_param_sources as $method_id => $arg_locations) {
+            if (isset($this->archived_param_sources[$method_id])) {
+                $this->archived_param_sources[$method_id] += $arg_locations;
+            } else {
+                $this->archived_param_sources[$method_id] = $arg_locations;
+            }
+        }
 
         $this->archived_return_sources = array_merge(
             $this->archived_return_sources,

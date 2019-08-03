@@ -65,6 +65,66 @@ class TaintTest extends TestCase
     /**
      * @return void
      */
+    public function testTaintedInputDirectlySuppressed()
+    {
+        $this->project_analyzer->trackTaintedInputs();
+
+        $this->addFile(
+            'somefile.php',
+            '<?php
+                class A {
+                    /** @psalm-suppress TaintedInput */
+                    public function deleteUser(PDO $pdo) : void {
+                        $userId = (string) $_GET["user_id"];
+                        $pdo->exec("delete from users where user_id = " . $userId);
+                    }
+                }'
+        );
+
+        $this->analyzeFile('somefile.php', new Context());
+    }
+
+    /**
+     * @return void
+     */
+    public function testTaintedInputDirectlySuppressedWithOtherUse()
+    {
+        $this->project_analyzer->trackTaintedInputs();
+
+        $this->addFile(
+            'somefile.php',
+            '<?php
+                class A {
+                    /** @psalm-suppress TaintedInput */
+                    public function deleteUser(PDOWrapper $pdo) : void {
+                        $userId = (string) $_GET["user_id"];
+                        $pdo->exec("delete from users where user_id = " . $userId);
+                    }
+
+                    public function deleteUserSafer(PDOWrapper $pdo) : void {
+                        $userId = $this->getSafeId();
+                        $pdo->exec("delete from users where user_id = " . $userId);
+                    }
+
+                    public function getSafeId() : string {
+                        return "5";
+                    }
+                }
+
+                class PDOWrapper {
+                    /**
+                     * @psalm-taint-sink $sql
+                     */
+                    public function exec(string $sql) : void {}
+                }'
+        );
+
+        $this->analyzeFile('somefile.php', new Context());
+    }
+
+    /**
+     * @return void
+     */
     public function testTaintedInputFromReturnTypeWithBranch()
     {
         $this->expectException(\Psalm\Exception\CodeException::class);

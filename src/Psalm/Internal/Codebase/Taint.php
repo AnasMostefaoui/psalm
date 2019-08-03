@@ -10,66 +10,67 @@ use Psalm\Issue\TaintedInput;
 use function array_merge;
 use function array_merge_recursive;
 use function strtolower;
+use UnexpectedValueException;
 
 class Taint
 {
     /**
-     * @var array<string, array<int, TypeSource>>
+     * @var array<string, array<int, ?TypeSource>>
      */
     private $new_param_sinks = [];
 
     /**
-     * @var array<string, TypeSource>
+     * @var array<string, ?TypeSource>
      */
     private $new_return_sinks = [];
 
     /**
-     * @var array<string, array<int, TypeSource>>
+     * @var array<string, array<int, ?TypeSource>>
      */
     private $new_param_sources = [];
 
     /**
-     * @var array<string, TypeSource>
+     * @var array<string, ?TypeSource>
      */
     private $new_return_sources = [];
 
     /**
-     * @var array<string, array<int, TypeSource>>
+     * @var array<string, array<int, ?TypeSource>>
      */
     private $previous_param_sinks = [];
 
     /**
-     * @var array<string, TypeSource>
+     * @var array<string, ?TypeSource>
      */
     private $previous_return_sinks = [];
 
     /**
-     * @var array<string, array<int, TypeSource>>
+     * @var array<string, array<int, ?TypeSource>>
      */
     private $previous_param_sources = [];
 
     /**
-     * @var array<string, TypeSource>
+     * @var array<string, ?TypeSource>
      */
     private $previous_return_sources = [];
 
     /**
-     * @var array<string, array<int, TypeSource>>
+     * @var array<string, array<int, ?TypeSource>>
      */
     private $archived_param_sinks = [];
 
     /**
-     * @var array<string, TypeSource>
+     * @var array<string, ?TypeSource>
      */
     private $archived_return_sinks = [];
 
     /**
-     * @var array<string, array<int, TypeSource>>
+     * @var array<string, array<int, ?TypeSource>>
      */
     private $archived_param_sources = [];
 
     /**
-     * @var array<string, TypeSource>
+     * @var array<string, ?TypeSource>
      */
     private $archived_return_sources = [];
 
@@ -81,6 +82,23 @@ class Taint
 
         if ($source->from_return_type) {
             return $this->archived_return_sinks[$source->method_id] ?? null;
+        }
+
+        return null;
+    }
+
+    public function hasNewOrExistingSink(TypeSource $source) : ?TypeSource
+    {
+        if ($source->argument_offset !== null) {
+            return $this->new_param_sinks[$source->method_id][$source->argument_offset]
+                ?? $this->archived_param_sinks[$source->method_id][$source->argument_offset]
+                ?? null;
+        }
+
+        if ($source->from_return_type) {
+            return $this->new_return_sinks[$source->method_id]
+                ?? $this->archived_return_sinks[$source->method_id]
+                ?? null;
         }
 
         return null;
@@ -125,6 +143,23 @@ class Taint
         return null;
     }
 
+    public function hasNewOrExistingSource(TypeSource $source) : ?TypeSource
+    {
+        if ($source->argument_offset !== null) {
+            return $this->new_param_sources[$source->method_id][$source->argument_offset]
+                ?? $this->archived_param_sources[$source->method_id][$source->argument_offset]
+                ?? null;
+        }
+
+        if ($source->from_return_type) {
+            return $this->new_return_sources[$source->method_id]
+                ?? $this->archived_return_sources[$source->method_id]
+                ?? null;
+        }
+
+        return null;
+    }
+
     /**
      * @param array<TypeSource> $sources
      */
@@ -132,17 +167,18 @@ class Taint
         StatementsAnalyzer $statements_analyzer,
         array $sources,
         \Psalm\CodeLocation $code_location,
-        TypeSource $previous_source
+        ?TypeSource $previous_source
     ) : void {
         foreach ($sources as $source) {
             if ($this->hasExistingSource($source)) {
                 continue;
             }
 
-            if ($this->hasExistingSink($source)) {
+            if ($this->hasNewOrExistingSink($source)) {
                 if (IssueBuffer::accepts(
                     new TaintedInput(
-                        'in path ' . $this->getPredecessorPath($previous_source) . ' out path ' . $this->getSuccessorPath($source),
+                        ($previous_source ? 'in path ' . $this->getPredecessorPath($previous_source) : '')
+                            . ' out path ' . $this->getSuccessorPath($source),
                         $code_location
                     ),
                     $statements_analyzer->getSuppressedIssues()
@@ -158,6 +194,7 @@ class Taint
             if ($source->from_return_type) {
                 $this->new_return_sources[$source->method_id] = $previous_source;
             }
+
         }
     }
 
@@ -172,6 +209,9 @@ class Taint
                     ?? $this->archived_param_sources[$source->method_id][$source->argument_offset]
                     ?? null
             ) {
+                if ($previous_source === $source) {
+                    throw new \UnexpectedValueException('bad');
+                }
                 return $this->getPredecessorPath($previous_source) . ' -> ' . $source_descriptor;
             }
 
@@ -238,17 +278,18 @@ class Taint
         StatementsAnalyzer $statements_analyzer,
         array $sources,
         \Psalm\CodeLocation $code_location,
-        TypeSource $previous_source
+        ?TypeSource $previous_source
     ) : void {
         foreach ($sources as $source) {
             if ($this->hasExistingSink($source)) {
                 continue;
             }
 
-            if ($this->hasExistingSource($source)) {
+            if ($this->hasNewOrExistingSource($source)) {
                 if (IssueBuffer::accepts(
                     new TaintedInput(
-                        'in path ' . $this->getPredecessorPath($source) . ' out path ' . $this->getSuccessorPath($previous_source),
+                        'in path ' . $this->getPredecessorPath($source)
+                            . ($previous_source ? ' out path ' . $this->getSuccessorPath($previous_source) : ''),
                         $code_location
                     ),
                     $statements_analyzer->getSuppressedIssues()

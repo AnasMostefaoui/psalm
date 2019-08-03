@@ -2378,10 +2378,21 @@ class CallAnalyzer
         if ($codebase->taint && $cased_method_id) {
             $method_source = new TypeSource($cased_method_id, $argument_offset, false, $code_location);
 
-            if (($is_sink || $codebase->taint->hasPreviousSink($method_source))
+            $has_previous_sink = $codebase->taint->hasPreviousSink($method_source);
+
+            if (($is_sink || $has_previous_sink)
                 && $input_type->sources
             ) {
                 $all_possible_sinks = [];
+
+                if (!$has_previous_sink) {
+                    $codebase->taint->addSinks(
+                        $statements_analyzer,
+                        [$method_source],
+                        $code_location,
+                        null
+                    );
+                }
 
                 foreach ($input_type->sources as $source) {
                     if ($codebase->taint->hasExistingSink($source)) {

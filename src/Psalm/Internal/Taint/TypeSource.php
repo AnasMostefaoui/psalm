@@ -14,7 +14,7 @@ class TypeSource
 
     public function __construct(string $id, ?CodeLocation $code_location)
     {
-        $this->id = \strtolower($id);
+        $this->id = $id;
         $this->code_location = $code_location;
     }
 

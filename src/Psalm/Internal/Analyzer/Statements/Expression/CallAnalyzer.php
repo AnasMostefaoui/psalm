@@ -2393,7 +2393,7 @@ class CallAnalyzer
 
                     $all_possible_sinks[] = $source;
 
-                    if (strpos($source->id, '::')) {
+                    if (strpos($source->id, '::') && strpos($source->id, '#')) {
                         list($fq_classlike_name, $method_name) = explode('::', $source->id);
 
                         $method_name_parts = explode('#', $method_name);

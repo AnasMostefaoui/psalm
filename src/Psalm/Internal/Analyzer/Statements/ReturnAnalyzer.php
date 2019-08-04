@@ -167,7 +167,10 @@ class ReturnAnalyzer
                 );
 
                 if ($codebase->taint) {
-                    $method_source = new TypeSource($cased_method_id, null, true, new CodeLocation($source, $stmt->expr));
+                    $method_source = new TypeSource(
+                        strtolower($cased_method_id),
+                        new CodeLocation($source, $stmt->expr)
+                    );
 
                     if ($codebase->taint->hasPreviousSink($method_source)) {
                         if ($inferred_type->sources) {

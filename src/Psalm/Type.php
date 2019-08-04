@@ -1460,7 +1460,7 @@ abstract class Type
         }
 
         if ($type_1->sources || $type_2->sources) {
-            $combined_type->sources = array_unique(
+            $combined_type->sources = \array_unique(
                 array_merge($type_1->sources ?: [], $type_2->sources ?: [])
             );
         }

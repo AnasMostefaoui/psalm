@@ -1145,7 +1145,7 @@ class MethodCallAnalyzer extends \Psalm\Internal\Analyzer\Statements\Expression\
                         );
 
                         $return_type_candidate->sources = [
-                            new TypeSource($method_id, null, true, new CodeLocation($source, $stmt->name))
+                            new TypeSource(strtolower($method_id), new CodeLocation($source, $stmt->name))
                         ];
 
                         $return_type_location = $codebase->methods->getMethodReturnTypeLocation(
@@ -1290,7 +1290,7 @@ class MethodCallAnalyzer extends \Psalm\Internal\Analyzer\Statements\Expression\
             }
 
             if ($codebase->taint && $method_id) {
-                $method_source = new TypeSource($method_id, null, true, new CodeLocation($source, $stmt->name));
+                $method_source = new TypeSource(strtolower($method_id), new CodeLocation($source, $stmt->name));
 
                 if ($codebase->taint->hasPreviousSource($method_source)) {
                     $return_type_candidate->tainted = 1;

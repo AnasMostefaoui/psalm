@@ -15,149 +15,53 @@ use UnexpectedValueException;
 class Taint
 {
     /**
-     * @var array<string, array<int, ?TypeSource>>
+     * @var array<string, ?TypeSource>
      */
-    private $new_param_sinks = [];
+    private $new_sinks = [];
 
     /**
      * @var array<string, ?TypeSource>
      */
-    private $new_return_sinks = [];
-
-    /**
-     * @var array<string, array<int, ?TypeSource>>
-     */
-    private $new_param_sources = [];
+    private $new_sources = [];
 
     /**
      * @var array<string, ?TypeSource>
      */
-    private $new_return_sources = [];
-
-    /**
-     * @var array<string, array<int, ?TypeSource>>
-     */
-    private $previous_param_sinks = [];
+    private $previous_sinks = [];
 
     /**
      * @var array<string, ?TypeSource>
      */
-    private $previous_return_sinks = [];
-
-    /**
-     * @var array<string, array<int, ?TypeSource>>
-     */
-    private $previous_param_sources = [];
+    private $previous_sources = [];
 
     /**
      * @var array<string, ?TypeSource>
      */
-    private $previous_return_sources = [];
-
-    /**
-     * @var array<string, array<int, ?TypeSource>>
-     */
-    private $archived_param_sinks = [];
+    private $archived_sinks = [];
 
     /**
      * @var array<string, ?TypeSource>
      */
-    private $archived_return_sinks = [];
-
-    /**
-     * @var array<string, array<int, ?TypeSource>>
-     */
-    private $archived_param_sources = [];
-
-    /**
-     * @var array<string, ?TypeSource>
-     */
-    private $archived_return_sources = [];
+    private $archived_sources = [];
 
     public function hasExistingSink(TypeSource $source) : ?TypeSource
     {
-        if ($source->argument_offset !== null) {
-            return $this->archived_param_sinks[$source->method_id][$source->argument_offset] ?? null;
-        }
-
-        if ($source->from_return_type) {
-            return $this->archived_return_sinks[$source->method_id] ?? null;
-        }
-
-        return null;
-    }
-
-    public function hasNewOrExistingSink(TypeSource $source) : ?TypeSource
-    {
-        if ($source->argument_offset !== null) {
-            return $this->new_param_sinks[$source->method_id][$source->argument_offset]
-                ?? $this->archived_param_sinks[$source->method_id][$source->argument_offset]
-                ?? null;
-        }
-
-        if ($source->from_return_type) {
-            return $this->new_return_sinks[$source->method_id]
-                ?? $this->archived_return_sinks[$source->method_id]
-                ?? null;
-        }
-
-        return null;
+        return $this->archived_sinks[$source->id] ?? null;
     }
 
     public function hasPreviousSink(TypeSource $source) : bool
     {
-        if ($source->argument_offset !== null) {
-            return isset($this->previous_param_sinks[$source->method_id][$source->argument_offset]);
-        }
-
-        if ($source->from_return_type) {
-            return isset($this->previous_return_sinks[$source->method_id]);
-        }
-
-        return false;
+        return isset($this->previous_sinks[$source->id]);
     }
 
     public function hasPreviousSource(TypeSource $source) : bool
     {
-        if ($source->argument_offset !== null) {
-            return isset($this->previous_param_sources[$source->method_id][$source->argument_offset]);
-        }
-
-        if ($source->from_return_type) {
-            return isset($this->previous_return_sources[$source->method_id]);
-        }
-
-        return false;
+        return isset($this->previous_sources[$source->id]);
     }
 
     public function hasExistingSource(TypeSource $source) : ?TypeSource
     {
-        if ($source->argument_offset !== null) {
-            return $this->archived_param_sources[$source->method_id][$source->argument_offset] ?? null;
-        }
-
-        if ($source->from_return_type) {
-            return $this->archived_return_sources[$source->method_id] ?? null;
-        }
-
-        return null;
-    }
-
-    public function hasNewOrExistingSource(TypeSource $source) : ?TypeSource
-    {
-        if ($source->argument_offset !== null) {
-            return $this->new_param_sources[$source->method_id][$source->argument_offset]
-                ?? $this->archived_param_sources[$source->method_id][$source->argument_offset]
-                ?? null;
-        }
-
-        if ($source->from_return_type) {
-            return $this->new_return_sources[$source->method_id]
-                ?? $this->archived_return_sources[$source->method_id]
-                ?? null;
-        }
-
-        return null;
+        return $this->archived_sources[$source->id] ?? null;
     }
 
     /**
@@ -174,7 +78,7 @@ class Taint
                 continue;
             }
 
-            if ($next_source = $this->hasExistingSink($source)) {
+            if ($this->hasExistingSink($source)) {
                 if (IssueBuffer::accepts(
                     new TaintedInput(
                         ($previous_source ? 'in path ' . $this->getPredecessorPath($previous_source) : '')
@@ -187,88 +91,36 @@ class Taint
                 }
             }
 
-            if ($source->argument_offset !== null) {
-                $this->new_param_sources[$source->method_id][$source->argument_offset] = $previous_source;
-            }
-
-            if ($source->from_return_type) {
-                $this->new_return_sources[$source->method_id] = $previous_source;
-            }
-
+            $this->new_sources[$source->id] = $previous_source;
         }
     }
 
     public function getPredecessorPath(TypeSource $source) : string
     {
-        if ($source->argument_offset !== null) {
-            $source_descriptor = $source->method_id . ' arg ' . ($source->argument_offset + 1)
-                . ($source->code_location ? ' (' . $source->code_location->getShortSummary() . ')' : '');
+        $source_descriptor = $source->id
+            . ($source->code_location ? ' (' . $source->code_location->getShortSummary() . ')' : '');
 
-            if ($previous_source
-                = $this->new_param_sources[$source->method_id][$source->argument_offset]
-                    ?? $this->archived_param_sources[$source->method_id][$source->argument_offset]
-                    ?? null
-            ) {
-                if ($previous_source === $source) {
-                    throw new \UnexpectedValueException('bad');
-                }
-                return $this->getPredecessorPath($previous_source) . ' -> ' . $source_descriptor;
+        if ($previous_source = $this->new_sources[$source->id] ?? $this->archived_sources[$source->id] ?? null) {
+            if ($previous_source === $source) {
+                throw new \UnexpectedValueException('bad');
             }
 
-            return $source_descriptor;
+            return $this->getPredecessorPath($previous_source) . ' -> ' . $source_descriptor;
         }
 
-        if ($source->from_return_type) {
-            $source_descriptor = $source->method_id . ' return type'
-                . ($source->code_location ? ' (' . $source->code_location->getShortSummary() . ')' : '');
-
-            if ($previous_source
-                = $this->new_return_sources[$source->method_id]
-                    ?? $this->archived_return_sources[$source->method_id]
-                    ?? null
-            ) {
-                return $this->getPredecessorPath($previous_source) . ' -> ' . $source_descriptor;
-            }
-
-            return $source_descriptor;
-        }
-
-        return '';
+        return $source_descriptor;
     }
 
     public function getSuccessorPath(TypeSource $source) : string
     {
-        if ($source->argument_offset !== null) {
-            $source_descriptor = $source->method_id . ' arg ' . ($source->argument_offset + 1)
-                . ($source->code_location ? ' (' . $source->code_location->getShortSummary() . ')' : '');
+        $source_descriptor = $source->id
+            . ($source->code_location ? ' (' . $source->code_location->getShortSummary() . ')' : '');
 
-            if ($next_source
-                = $this->new_param_sinks[$source->method_id][$source->argument_offset]
-                    ?? $this->archived_param_sinks[$source->method_id][$source->argument_offset]
-                    ?? null
-            ) {
-                return $source_descriptor . ' -> ' . $this->getSuccessorPath($next_source);
-            }
-
-            return $source_descriptor;
+        if ($next_source = $this->new_sinks[$source->id] ?? $this->archived_sinks[$source->id] ?? null) {
+            return $source_descriptor . ' -> ' . $this->getSuccessorPath($next_source);
         }
 
-        if ($source->from_return_type) {
-            $source_descriptor = $source->method_id . ' return value'
-                . ($source->code_location ? ' (' . $source->code_location->getShortSummary() . ')' : '');
-
-            if ($next_source
-                = $this->new_return_sinks[$source->method_id]
-                    ?? $this->archived_return_sinks[$source->method_id]
-                    ?? null
-            ) {
-                return $source_descriptor . ' -> ' .$this->getSuccessorPath($next_source);
-            }
-
-            return $source_descriptor;
-        }
-
-        return '';
+        return $source_descriptor;
     }
 
     /**
@@ -285,7 +137,7 @@ class Taint
                 continue;
             }
 
-            if ($next_source = $this->hasExistingSource($source)) {
+            if ($this->hasExistingSource($source)) {
                 if (IssueBuffer::accepts(
                     new TaintedInput(
                         'in path ' . $this->getPredecessorPath($source)
@@ -298,89 +150,46 @@ class Taint
                 }
             }
 
-            if ($source->argument_offset !== null) {
-                $this->new_param_sinks[$source->method_id][$source->argument_offset] = $previous_source;
-            }
-
-            if ($source->from_return_type) {
-                $this->new_return_sinks[$source->method_id] = $previous_source;
-            }
+            $this->new_sinks[$source->id] = $previous_source;
         }
     }
 
     public function hasNewSinksAndSources() : bool
     {
-        return ($this->new_param_sinks || $this->new_return_sinks)
-            && ($this->new_param_sources || $this->new_return_sources);
+        return $this->new_sinks && $this->new_sources;
     }
 
     public function addThreadData(self $taint) : void
     {
-        foreach ($taint->new_param_sinks as $method_id => $arg_locations) {
-            if (isset($this->new_param_sinks[$method_id])) {
-                $this->new_param_sinks[$method_id] += $arg_locations;
-            } else {
-                $this->new_param_sinks[$method_id] = $arg_locations;
-            }
-        }
-
-        foreach ($taint->new_param_sources as $method_id => $arg_locations) {
-            if (isset($this->new_param_sources[$method_id])) {
-                $this->new_param_sources[$method_id] += $arg_locations;
-            } else {
-                $this->new_param_sources[$method_id] = $arg_locations;
-            }
-        }
-
-        $this->new_return_sinks = array_merge(
-            $this->new_return_sinks,
-            $taint->new_return_sinks
+        $this->new_sinks = array_merge(
+            $this->new_sinks,
+            $taint->new_sinks
         );
 
-        $this->new_return_sources = array_merge(
-            $this->new_return_sources,
-            $taint->new_return_sources
+        $this->new_sources = array_merge(
+            $this->new_sources,
+            $taint->new_sources
         );
     }
 
     public function clearNewSinksAndSources() : void
     {
-        foreach ($this->new_param_sinks as $method_id => $arg_locations) {
-            if (isset($this->archived_param_sinks[$method_id])) {
-                $this->archived_param_sinks[$method_id] += $arg_locations;
-            } else {
-                $this->archived_param_sinks[$method_id] = $arg_locations;
-            }
-        }
-
-        $this->archived_return_sinks = array_merge(
-            $this->archived_return_sinks,
-            $this->new_return_sinks
+        $this->archived_sinks = array_merge(
+            $this->archived_sinks,
+            $this->new_sinks
         );
 
-        $this->previous_param_sinks = $this->new_param_sinks;
-        $this->previous_return_sinks = $this->new_return_sinks;
+        $this->previous_sinks = $this->new_sinks;
 
-        $this->new_param_sinks = [];
-        $this->new_return_sinks = [];
+        $this->new_sinks = [];
 
-        foreach ($this->new_param_sources as $method_id => $arg_locations) {
-            if (isset($this->archived_param_sources[$method_id])) {
-                $this->archived_param_sources[$method_id] += $arg_locations;
-            } else {
-                $this->archived_param_sources[$method_id] = $arg_locations;
-            }
-        }
-
-        $this->archived_return_sources = array_merge(
-            $this->archived_return_sources,
-            $this->new_return_sources
+        $this->archived_sources = array_merge(
+            $this->archived_sources,
+            $this->new_sources
         );
 
-        $this->previous_param_sources = $this->new_param_sources;
-        $this->previous_return_sources = $this->new_return_sources;
+        $this->previous_sources = $this->new_sources;
 
-        $this->new_param_sources = [];
-        $this->new_return_sources = [];
+        $this->new_sources = [];
     }
 }

@@ -2377,7 +2377,7 @@ class CallAnalyzer
         }
 
         if ($codebase->taint && $cased_method_id) {
-            $method_source = new TypeSource($cased_method_id, $argument_offset, false, $code_location);
+            $method_source = TypeSource::getForMethodArgument($cased_method_id, $argument_offset, $code_location);
 
             $has_previous_sink = $codebase->taint->hasPreviousSink($method_source);
 
@@ -2393,28 +2393,28 @@ class CallAnalyzer
 
                     $all_possible_sinks[] = $source;
 
-                    if (strpos($source->method_id, '::')) {
-                        list($fq_classlike_name, $method_name) = explode('::', $source->method_id);
+                    if (strpos($source->id, '::')) {
+                        list($fq_classlike_name, $method_name) = explode('::', $source->id);
 
-                        $method_name = strtolower($method_name);
+                        $method_name_parts = explode('#', $method_name);
+
+                        $method_name = strtolower($method_name_parts[0]);
 
                         $class_storage = $codebase->classlike_storage_provider->get($fq_classlike_name);
 
                         foreach ($class_storage->dependent_classlikes as $dependent_classlike => $_) {
-                            $all_possible_sinks[] = new TypeSource(
+                            $all_possible_sinks[] = TypeSource::getForMethodArgument(
                                 $dependent_classlike . '::' . $method_name,
-                                $source->argument_offset,
-                                false,
+                                (int) $method_name_parts[1] - 1,
                                 $code_location
                             );
                         }
 
                         if (isset($class_storage->overridden_method_ids[$method_name])) {
                             foreach ($class_storage->overridden_method_ids[$method_name] as $parent_method_id) {
-                                $all_possible_sinks[] = new TypeSource(
+                                $all_possible_sinks[] = TypeSource::getForMethodArgument(
                                     $parent_method_id,
-                                    $source->argument_offset,
-                                    false,
+                                    (int) $method_name_parts[1] - 1,
                                     $code_location
                                 );
                             }
